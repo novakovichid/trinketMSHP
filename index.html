@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trinket Python (Frontend)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__dot"></span>
+        <div>
+          <h1>Trinket Python</h1>
+          <p>Полностью фронтенд: модули, шаринг по ссылке, turtle</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="add-file" class="btn">+ Файл</button>
+        <button id="share" class="btn btn--ghost">Поделиться</button>
+        <button id="run" class="btn btn--primary">▶ Запустить</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="files">
+        <h2>Файлы</h2>
+        <ul id="file-list" class="file-list"></ul>
+      </section>
+
+      <section class="editor">
+        <div class="editor__header">
+          <span id="active-file">main.py</span>
+          <div class="editor__actions">
+            <button id="rename-file" class="btn btn--ghost">Переименовать</button>
+            <button id="delete-file" class="btn btn--ghost">Удалить</button>
+          </div>
+        </div>
+        <textarea id="code" spellcheck="false"></textarea>
+      </section>
+
+      <section class="output">
+        <div class="output__panel">
+          <h2>Вывод</h2>
+          <pre id="console" class="console"></pre>
+        </div>
+        <div class="output__panel">
+          <h2>Turtle</h2>
+          <canvas id="turtle-canvas" width="480" height="360"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

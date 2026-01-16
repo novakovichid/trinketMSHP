@@ -7,12 +7,13 @@ const DEFAULT_FILES = {
 const FILES_KEY = "trinket-files";
 const ACTIVE_KEY = "trinket-active";
 
-const fileList = document.getElementById("file-list");
 const codeArea = document.getElementById("code");
-const activeFileLabel = document.getElementById("active-file");
+const fileTabs = document.getElementById("file-tabs");
 const consoleOutput = document.getElementById("console");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
+const turtlePanel = document.getElementById("turtle-panel");
+const lineNumbers = document.getElementById("line-numbers");
 
 const state = {
   files: {},
@@ -71,25 +72,27 @@ function loadState() {
   }
 }
 
-function renderFileList() {
-  fileList.innerHTML = "";
+function renderFileTabs() {
+  fileTabs.innerHTML = "";
   Object.keys(state.files).forEach((filename) => {
-    const item = document.createElement("li");
-    item.textContent = filename;
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "file-tab";
+    tab.textContent = filename;
     if (filename === state.active) {
-      item.classList.add("active");
+      tab.classList.add("active");
     }
-    item.addEventListener("click", () => switchFile(filename));
-    fileList.appendChild(item);
+    tab.addEventListener("click", () => switchFile(filename));
+    fileTabs.appendChild(tab);
   });
 }
 
 function switchFile(filename) {
   if (!state.files[filename]) return;
   state.active = filename;
-  activeFileLabel.textContent = filename;
   codeArea.value = state.files[filename];
-  renderFileList();
+  renderFileTabs();
+  updateLineNumbers();
   persistState();
 }
 
@@ -97,6 +100,8 @@ function updateActiveFileContent() {
   if (!state.active) return;
   state.files[state.active] = codeArea.value;
   persistState();
+  updateLineNumbers();
+  updateTurtleVisibility();
 }
 
 function addFile() {
@@ -140,6 +145,40 @@ function deleteFile() {
   delete state.files[state.active];
   state.active = Object.keys(state.files)[0];
   switchFile(state.active);
+}
+
+function downloadActiveFile() {
+  updateActiveFileContent();
+  const content = state.files[state.active] ?? "";
+  const blob = new Blob([content], { type: "text/x-python" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = state.active;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function updateLineNumbers() {
+  const totalLines = codeArea.value.split("\n").length || 1;
+  const lines = Array.from({ length: totalLines }, (_, index) => index + 1);
+  lineNumbers.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
+}
+
+function syncLineNumbersScroll() {
+  lineNumbers.scrollTop = codeArea.scrollTop;
+}
+
+function usesTurtle() {
+  return Object.values(state.files).some((content) =>
+    /\bfrom\s+turtle\b|\bimport\s+turtle\b|\bturtle\./.test(content),
+  );
+}
+
+function updateTurtleVisibility() {
+  turtlePanel.classList.toggle("hidden", !usesTurtle());
 }
 
 function createTurtleRuntime() {
@@ -279,19 +318,23 @@ function appendConsole(text, isError = false) {
 async function runCode() {
   updateActiveFileContent();
   consoleOutput.textContent = "";
-  turtleRuntime.reset();
+  const turtleNeeded = usesTurtle();
+  turtlePanel.classList.toggle("hidden", !turtleNeeded);
+  if (turtleNeeded) {
+    turtleRuntime.reset();
+  }
   const pyodide = await ensurePyodide();
   Object.entries(state.files).forEach(([name, content]) => {
     pyodide.FS.writeFile(name, content);
   });
 
   const mainFile = state.files["main.py"] ? "main.py" : state.active;
-  const runner = `import runpy\nrunpy.run_path('${mainFile}')\n`;
+  const runner = `import runpy\nimport builtins\nimport js\n\ndef _input(prompt=\"\"):\n    value = js.prompt(prompt)\n    if value is None:\n        return \"\"\n    return value\n\nbuiltins.input = _input\nrunpy.run_path('${mainFile}')\n`;
 
   try {
     await pyodide.runPythonAsync(runner);
   } catch (error) {
-    appendConsole(`\n${error}` , true);
+    appendConsole(`\n${error}`, true);
   }
 }
 
@@ -309,17 +352,24 @@ function shareProject() {
 }
 
 codeArea.addEventListener("input", updateActiveFileContent);
+codeArea.addEventListener("scroll", syncLineNumbersScroll);
 
 
 document.getElementById("add-file").addEventListener("click", addFile);
 document.getElementById("rename-file").addEventListener("click", renameFile);
 document.getElementById("delete-file").addEventListener("click", deleteFile);
+document.getElementById("download-file").addEventListener("click", downloadActiveFile);
 document.getElementById("run").addEventListener("click", runCode);
 document.getElementById("share").addEventListener("click", shareProject);
+document.getElementById("debug").addEventListener("click", () => {
+  showToast("Отладка будет доступна в следующей версии.");
+});
 
 loadState();
-renderFileList();
+renderFileTabs();
 switchFile(state.active);
+updateLineNumbers();
+updateTurtleVisibility();
 
 if (state.shareLoaded) {
   showToast("Проект загружен по ссылке");

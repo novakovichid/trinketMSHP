@@ -12,39 +12,42 @@
         <span class="brand__dot"></span>
         <div>
           <h1>Trinket Python</h1>
-          <p>Полностью фронтенд: модули, шаринг по ссылке, turtle</p>
         </div>
       </div>
       <div class="actions">
-        <button id="add-file" class="btn">+ Файл</button>
         <button id="share" class="btn btn--ghost">Поделиться</button>
-        <button id="run" class="btn btn--primary">▶ Запустить</button>
       </div>
     </header>
 
     <main class="layout">
-      <section class="files">
-        <h2>Файлы</h2>
-        <ul id="file-list" class="file-list"></ul>
-      </section>
-
       <section class="editor">
-        <div class="editor__header">
-          <span id="active-file">main.py</span>
-          <div class="editor__actions">
-            <button id="rename-file" class="btn btn--ghost">Переименовать</button>
-            <button id="delete-file" class="btn btn--ghost">Удалить</button>
+        <div class="editor__tabs">
+          <div id="file-tabs" class="file-tabs"></div>
+          <div class="file-actions" role="tablist" aria-label="Управление файлами">
+            <button id="add-file" class="tab-btn" role="tab">+ Файл</button>
+            <button id="rename-file" class="tab-btn" role="tab">Переименовать</button>
+            <button id="delete-file" class="tab-btn" role="tab">Удалить</button>
+            <button id="download-file" class="tab-btn" role="tab">Скачать</button>
           </div>
         </div>
-        <textarea id="code" spellcheck="false"></textarea>
+        <div class="editor__body">
+          <div id="line-numbers" class="line-numbers" aria-hidden="true"></div>
+          <textarea id="code" spellcheck="false"></textarea>
+        </div>
       </section>
 
       <section class="output">
-        <div class="output__panel">
-          <h2>Вывод</h2>
+        <div class="output__panel output__panel--console">
+          <div class="panel__header">
+            <h2>Консоль</h2>
+            <div class="panel__actions">
+              <button id="run" class="btn btn--primary">▶ Запуск</button>
+              <button id="debug" class="btn btn--ghost">🐞 Отладка</button>
+            </div>
+          </div>
           <pre id="console" class="console"></pre>
         </div>
-        <div class="output__panel">
+        <div id="turtle-panel" class="output__panel output__panel--turtle">
           <h2>Turtle</h2>
           <canvas id="turtle-canvas" width="480" height="360"></canvas>
         </div>

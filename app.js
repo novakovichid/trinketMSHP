@@ -1,11 +1,11 @@
 const DEFAULT_FILES = {
-  "main.py": `from turtle import *\n\nsetup(480, 360)\nspeed(6)\n\nfor i in range(36):\n    forward(120)\n    left(170)\n\npenup()\ngoto(-160, -140)\ncolor(\"#2563eb\")\nwrite(\"Trinket turtle in the browser!\", font=(\"Arial\", 14, \"normal\"))\n`,
+  "main.py": `from turtle import *\n\nsetup(480, 360)\nspeed(6)\n\nfor i in range(36):\n    forward(120)\n    left(170)\n\npenup()\ngoto(-160, -140)\ncolor(\"#2563eb\")\nwrite(\"SHPyIDE turtle in the browser!\", font=(\"Arial\", 14, \"normal\"))\n`,
   "utils.py": `def greet(name: str) -> str:\n    return f\"Привет, {name}!\"\n`,
-  "app.py": `from utils import greet\n\nprint(greet(\"Trinket\"))\n`,
+  "app.py": `from utils import greet\n\nprint(greet(\"SHPyIDE\"))\n`,
 };
 
-const FILES_KEY = "trinket-files";
-const ACTIVE_KEY = "trinket-active";
+const FILES_KEY = "shpyide-files";
+const ACTIVE_KEY = "shpyide-active";
 
 const codeArea = document.getElementById("code");
 const fileTabs = document.getElementById("file-tabs");
@@ -32,7 +32,6 @@ const state = {
 };
 
 const inputQueue = [];
-let inputResolver = null;
 let fileDialogMode = null;
 let editor = null;
 let isRunning = false;
@@ -187,6 +186,7 @@ function confirmFileDialog() {
   }
 
   if (fileDialogMode === "rename") {
+    saveActiveFileContent();
     if (!name || name === state.active) {
       closeFileDialog();
       return;
@@ -202,6 +202,7 @@ function confirmFileDialog() {
     const content = state.files[state.active];
     delete state.files[state.active];
     state.files[name] = content;
+    state.active = name;
     switchFile(name);
   }
 
@@ -399,39 +400,28 @@ function setConsoleInputState(active) {
   }
 }
 
-function requestConsoleInput() {
-  setConsoleInputState(true);
-  return new Promise((resolve) => {
-    inputResolver = (value) => {
-      setConsoleInputState(false);
-      resolve(value);
-    };
-  });
-}
-
 function handleConsoleInputSubmit(event) {
   event.preventDefault();
   if (!isRunning) return;
   const value = consoleInput.value;
   consoleInput.value = "";
   appendConsole(`${value}\n`);
-  if (inputResolver) {
-    const resolver = inputResolver;
-    inputResolver = null;
-    resolver(`${value}\n`);
-  } else {
-    inputQueue.push(`${value}\n`);
-  }
+  inputQueue.push(`${value}\n`);
 }
 
 function setupStdin(pyodide) {
   pyodide.setStdin({
-    stdin: async () => {
+    stdin: () => {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      return requestConsoleInput();
+      setConsoleInputState(true);
+      const value = window.prompt("Введите ввод:", "") ?? "";
+      setConsoleInputState(false);
+      appendConsole(`${value}\n`);
+      return `${value}\n`;
     },
+    isatty: true,
     eof: () => false,
   });
 }
@@ -458,7 +448,6 @@ async function runCode() {
   saveActiveFileContent();
   consoleOutput.textContent = "";
   inputQueue.length = 0;
-  inputResolver = null;
   isRunning = true;
   setConsoleInputState(false);
   const turtleNeeded = usesTurtle();
@@ -507,6 +496,13 @@ document.getElementById("share").addEventListener("click", shareProject);
 fileDialogConfirm.addEventListener("click", confirmFileDialog);
 fileDialogCancel.addEventListener("click", closeFileDialog);
 consoleInputForm.addEventListener("submit", handleConsoleInputSubmit);
+fileDialogInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  if (fileDialog.classList.contains("hidden")) return;
+  if (fileDialogMode !== "add" && fileDialogMode !== "rename") return;
+  event.preventDefault();
+  confirmFileDialog();
+});
 
 loadState();
 editor = CodeMirror.fromTextArea(codeArea, {

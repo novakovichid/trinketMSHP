@@ -217,9 +217,37 @@ body {
   white-space: pre-wrap;
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
+  overflow-y: auto;
 }
 
-.console.console--input {
+.console-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.console-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.console-input input {
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 13px;
+}
+
+.console-input input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.console-input.console-input--waiting input {
   outline: 2px solid #38bdf8;
   outline-offset: 2px;
 }

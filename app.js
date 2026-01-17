@@ -10,6 +10,9 @@ const ACTIVE_KEY = "trinket-active";
 const codeArea = document.getElementById("code");
 const fileTabs = document.getElementById("file-tabs");
 const consoleOutput = document.getElementById("console");
+const consoleInputForm = document.getElementById("console-input-form");
+const consoleInput = document.getElementById("console-input");
+const consoleInputButton = consoleInputForm.querySelector("button");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
@@ -32,9 +35,7 @@ const inputQueue = [];
 let inputResolver = null;
 let fileDialogMode = null;
 let editor = null;
-let inputBuffer = "";
-let inputStartIndex = 0;
-let inputActive = false;
+let isRunning = false;
 const runtimeFiles = new Set();
 
 function showToast(message) {
@@ -386,79 +387,50 @@ function appendConsole(text, isError = false) {
   } else {
     consoleOutput.textContent += text;
   }
+  consoleOutput.scrollTop = consoleOutput.scrollHeight;
 }
 
-function showConsolePrompt(promptText = "") {
-  if (promptText) {
-    appendConsole(promptText);
+function setConsoleInputState(active) {
+  consoleInputForm.classList.toggle("console-input--waiting", active);
+  consoleInput.disabled = !isRunning;
+  consoleInputButton.disabled = !isRunning;
+  if (active) {
+    consoleInput.focus();
   }
-  inputStartIndex = consoleOutput.textContent.length;
-  inputBuffer = "";
-  inputActive = true;
-  consoleOutput.classList.add("console--input");
-  consoleOutput.focus();
 }
 
-function resetConsolePrompt() {
-  inputActive = false;
-  inputBuffer = "";
-  inputStartIndex = 0;
-  consoleOutput.classList.remove("console--input");
-}
-
-function requestConsoleInput(promptText = "") {
-  showConsolePrompt(promptText);
+function requestConsoleInput() {
+  setConsoleInputState(true);
   return new Promise((resolve) => {
-    inputResolver = resolve;
+    inputResolver = (value) => {
+      setConsoleInputState(false);
+      resolve(value);
+    };
   });
 }
 
-function handleConsoleSubmit() {
-  if (!inputActive) return;
-  const value = inputBuffer;
-  appendConsole("\n");
-  inputBuffer = "";
+function handleConsoleInputSubmit(event) {
+  event.preventDefault();
+  if (!isRunning) return;
+  const value = consoleInput.value;
+  consoleInput.value = "";
+  appendConsole(`${value}\n`);
   if (inputResolver) {
     const resolver = inputResolver;
     inputResolver = null;
     resolver(`${value}\n`);
-    resetConsolePrompt();
   } else {
     inputQueue.push(`${value}\n`);
   }
 }
 
-function handleConsoleKeydown(event) {
-  if (!inputActive) return;
-  if (event.key === "Enter") {
-    event.preventDefault();
-    handleConsoleSubmit();
-    return;
-  }
-  if (event.key === "Backspace") {
-    if (consoleOutput.textContent.length > inputStartIndex) {
-      event.preventDefault();
-      consoleOutput.textContent = consoleOutput.textContent.slice(0, -1);
-      inputBuffer = inputBuffer.slice(0, -1);
-    }
-    return;
-  }
-  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-    event.preventDefault();
-    inputBuffer += event.key;
-    consoleOutput.textContent += event.key;
-  }
-}
-
 function setupStdin(pyodide) {
-  // В этом проекте запрещено использовать window.prompt/alert/confirm для ввода.
   pyodide.setStdin({
-    stdin: () => {
+    stdin: async () => {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      showToast("Нет ввода для input(). Добавьте значение в консоль и повторите запуск.");
-      return "\n";
+      return requestConsoleInput();
     },
     eof: () => false,
   });
@@ -487,7 +459,8 @@ async function runCode() {
   consoleOutput.textContent = "";
   inputQueue.length = 0;
   inputResolver = null;
-  resetConsolePrompt();
+  isRunning = true;
+  setConsoleInputState(false);
   const turtleNeeded = usesTurtle();
   turtlePanel.classList.toggle("hidden", !turtleNeeded);
   if (turtleNeeded) {
@@ -504,6 +477,9 @@ async function runCode() {
     await pyodide.runPythonAsync(runner);
   } catch (error) {
     appendConsole(`\n${error}`, true);
+  } finally {
+    isRunning = false;
+    setConsoleInputState(false);
   }
 }
 
@@ -530,7 +506,7 @@ document.getElementById("run").addEventListener("click", runCode);
 document.getElementById("share").addEventListener("click", shareProject);
 fileDialogConfirm.addEventListener("click", confirmFileDialog);
 fileDialogCancel.addEventListener("click", closeFileDialog);
-consoleOutput.addEventListener("keydown", handleConsoleKeydown);
+consoleInputForm.addEventListener("submit", handleConsoleInputSubmit);
 
 loadState();
 editor = CodeMirror.fromTextArea(codeArea, {
@@ -544,7 +520,7 @@ editor.on("change", updateActiveFileContent);
 renderFileTabs();
 switchFile(state.active);
 updateTurtleVisibility();
-resetConsolePrompt();
+setConsoleInputState(false);
 
 if (state.shareLoaded) {
   showToast("Проект загружен по ссылке");

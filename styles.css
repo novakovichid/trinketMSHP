@@ -63,6 +63,11 @@ body {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn:hover {
@@ -84,6 +89,10 @@ body {
   grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
   gap: 16px;
   padding: 16px 24px 32px;
+}
+
+.layout--pyscript {
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
 }
 
 .editor {
@@ -175,6 +184,37 @@ body {
 .output {
   display: grid;
   gap: 16px;
+}
+
+.pyscript-editor {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.pyscript-editor textarea {
+  width: 100%;
+  min-height: 420px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.pyscript-editor textarea:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.panel__status {
+  font-size: 13px;
+  color: #64748b;
 }
 
 .output__panel {

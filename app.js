@@ -415,6 +415,8 @@ window.TurtleRuntime = turtleRuntime;
 
 const TURTLE_MODULE = `import js\n\n_runtime = js.TurtleRuntime\n\n\ndef setup(width=480, height=360):\n    _runtime.setup(width, height)\n\n\ndef forward(distance):\n    _runtime.forward(distance)\n\n\ndef backward(distance):\n    _runtime.backward(distance)\n\n\ndef left(angle):\n    _runtime.left(angle)\n\n\ndef right(angle):\n    _runtime.right(angle)\n\n\ndef penup():\n    _runtime.penup()\n\n\ndef pendown():\n    _runtime.pendown()\n\n\ndef goto(x, y):\n    _runtime.goto(x, y)\n\n\ndef setheading(angle):\n    _runtime.setheading(angle)\n\n\ndef color(value):\n    _runtime.color(value)\n\n\ndef width(value):\n    _runtime.width(value)\n\n\ndef speed(value):\n    _runtime.speed(value)\n\n\ndef clear():\n    _runtime.clear()\n\n\ndef circle(radius):\n    _runtime.circle(radius)\n\n\ndef write(text, font=(\"Arial\", 16, \"normal\")):\n    size = font[1] if len(font) > 1 else 16\n    family = font[0] if len(font) > 0 else \"Arial\"\n    _runtime.write(text, f\"{size}px {family}\")\n`;
 
+const INPUT_SHIM = `import builtins\nimport io\nimport js\nimport sys\n\n\ndef _shpy_input(prompt=\"\"):\n    return js.await(js.requestConsoleInput(prompt))\n\n\nclass _ShpyStdin(io.TextIOBase):\n    def readline(self, size=-1):\n        return f\"{js.await(js.requestConsoleInput(\\\"\\\"))}\\\\n\"\n\n\nsys.stdin = _ShpyStdin()\nbuiltins.input = _shpy_input\n`;
+
 async function ensurePyodide() {
   if (state.pyodide) return state.pyodide;
   consoleOutput.textContent = "Загрузка Python...";
@@ -423,6 +425,13 @@ async function ensurePyodide() {
     stderr: (text) => appendConsole(text, true),
   });
   state.pyodide.FS.writeFile("turtle.py", TURTLE_MODULE);
+  state.pyodide.globals.set("requestConsoleInput", (promptText = "") => {
+    if (!isRunning) {
+      return Promise.resolve("");
+    }
+    return requestConsoleInput(promptText);
+  });
+  await state.pyodide.runPythonAsync(INPUT_SHIM);
   state.runtimeReady = true;
   appendConsole("Python готов к работе.\n");
   return state.pyodide;
@@ -465,12 +474,12 @@ function submitConsoleInput(value) {
   updateConsoleInputBuffer();
   appendConsole(`${value}\n`);
   if (pendingInputResolver) {
-    pendingInputResolver(`${value}\n`);
+    pendingInputResolver(value);
     pendingInputResolver = null;
     setConsoleInputState(false);
     return;
   }
-  inputQueue.push(`${value}\n`);
+  inputQueue.push(value);
 }
 
 function handleConsoleKeydown(event) {
@@ -514,7 +523,7 @@ function handleConsolePaste(event) {
   updateConsoleInputBuffer();
   if (rest.length > 0) {
     submitConsoleInput(inputBuffer);
-    rest.forEach((line) => inputQueue.push(`${line}\n`));
+    rest.forEach((line) => inputQueue.push(line));
   }
 }
 
@@ -525,20 +534,14 @@ function waitForConsoleInput() {
   });
 }
 
-function setupStdin(pyodide) {
-  pyodide.setStdin({
-    stdin: async () => {
-      if (!isRunning) {
-        return "";
-      }
-      if (inputQueue.length > 0) {
-        return inputQueue.shift();
-      }
-      return await waitForConsoleInput();
-    },
-    isatty: true,
-    eof: () => false,
-  });
+function requestConsoleInput(promptText) {
+  if (promptText) {
+    appendConsole(promptText);
+  }
+  if (inputQueue.length > 0) {
+    return Promise.resolve(inputQueue.shift());
+  }
+  return waitForConsoleInput();
 }
 
 function syncRuntimeFiles(pyodide) {
@@ -571,7 +574,6 @@ async function runCode() {
     turtleRuntime.reset();
   }
   const pyodide = await ensurePyodide();
-  setupStdin(pyodide);
   syncRuntimeFiles(pyodide);
 
   const mainFile = Object.hasOwn(state.files, "main.py") ? "main.py" : state.active;

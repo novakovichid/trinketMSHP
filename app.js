@@ -451,6 +451,14 @@ function updateConsoleInputBuffer() {
   consoleInputBuffer.textContent = inputBuffer;
 }
 
+function resetInputState() {
+  inputQueue.length = 0;
+  inputBuffer = "";
+  pendingInputResolver = null;
+  setConsoleInputState(false);
+  updateConsoleInputBuffer();
+}
+
 function submitConsoleInput(value) {
   if (!isRunning) return;
   inputBuffer = "";
@@ -520,6 +528,9 @@ function waitForConsoleInput() {
 function setupStdin(pyodide) {
   pyodide.setStdin({
     stdin: async () => {
+      if (!isRunning) {
+        return "";
+      }
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
@@ -551,9 +562,7 @@ function syncRuntimeFiles(pyodide) {
 async function runCode() {
   saveActiveFileContent();
   consoleOutput.textContent = "";
-  inputQueue.length = 0;
-  inputBuffer = "";
-  updateConsoleInputBuffer();
+  resetInputState();
   isRunning = true;
   setConsoleInputState(false);
   const turtleNeeded = usesTurtle();
@@ -574,7 +583,7 @@ async function runCode() {
     appendConsole(`\n${error}`, true);
   } finally {
     isRunning = false;
-    setConsoleInputState(false);
+    resetInputState();
   }
 }
 

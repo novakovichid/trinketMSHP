@@ -519,11 +519,11 @@ function waitForConsoleInput() {
 
 function setupStdin(pyodide) {
   pyodide.setStdin({
-    stdin: () => {
+    stdin: async () => {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      return waitForConsoleInput();
+      return await waitForConsoleInput();
     },
     isatty: true,
     eof: () => false,

@@ -43,13 +43,56 @@ function showToast(message) {
   setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-function serializeShare(files, active) {
+function base64UrlEncode(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(text) {
+  const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function fallbackSerializeShare(files, active) {
   const payload = JSON.stringify({ files, active });
   return btoa(unescape(encodeURIComponent(payload)));
 }
 
-function deserializeShare(hash) {
+async function serializeShare(files, active) {
+  const payload = JSON.stringify({ files, active });
+  if (window.CompressionStream) {
+    try {
+      const encoded = new TextEncoder().encode(payload);
+      const compressedStream = new Blob([encoded]).stream().pipeThrough(new CompressionStream("gzip"));
+      const buffer = await new Response(compressedStream).arrayBuffer();
+      const compressed = new Uint8Array(buffer);
+      return `v1:${base64UrlEncode(compressed)}`;
+    } catch (error) {
+      console.warn("Failed to compress share payload", error);
+    }
+  }
+  return fallbackSerializeShare(files, active);
+}
+
+async function deserializeShare(hash) {
   try {
+    if (hash.startsWith("v1:")) {
+      const payload = hash.slice(3);
+      if (!window.DecompressionStream) {
+        console.warn("DecompressionStream unavailable");
+        return null;
+      }
+      const compressed = base64UrlDecode(payload);
+      const decompressedStream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const buffer = await new Response(decompressedStream).arrayBuffer();
+      const decoded = new TextDecoder().decode(buffer);
+      return JSON.parse(decoded);
+    }
     const decoded = decodeURIComponent(escape(atob(hash)));
     return JSON.parse(decoded);
   } catch (error) {
@@ -63,10 +106,10 @@ function persistState() {
   localStorage.setItem(ACTIVE_KEY, state.active);
 }
 
-function loadState() {
+async function loadState() {
   const hash = window.location.hash.replace("#", "");
   if (hash) {
-    const shared = deserializeShare(hash);
+    const shared = await deserializeShare(hash);
     if (shared?.files) {
       state.files = shared.files;
       state.active = shared.active || Object.keys(shared.files)[0] || "main.py";
@@ -472,9 +515,9 @@ async function runCode() {
   }
 }
 
-function shareProject() {
+async function shareProject() {
   saveActiveFileContent();
-  const hash = serializeShare(state.files, state.active);
+  const hash = await serializeShare(state.files, state.active);
   const url = `${window.location.origin}${window.location.pathname}#${hash}`;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(url).then(() => {
@@ -504,20 +547,24 @@ fileDialogInput.addEventListener("keydown", (event) => {
   confirmFileDialog();
 });
 
-loadState();
-editor = CodeMirror.fromTextArea(codeArea, {
-  lineNumbers: true,
-  mode: "python",
-  lineWrapping: true,
-  indentUnit: 4,
-  tabSize: 4,
-});
-editor.on("change", updateActiveFileContent);
-renderFileTabs();
-switchFile(state.active);
-updateTurtleVisibility();
-setConsoleInputState(false);
+async function init() {
+  await loadState();
+  editor = CodeMirror.fromTextArea(codeArea, {
+    lineNumbers: true,
+    mode: "python",
+    lineWrapping: true,
+    indentUnit: 4,
+    tabSize: 4,
+  });
+  editor.on("change", updateActiveFileContent);
+  renderFileTabs();
+  switchFile(state.active);
+  updateTurtleVisibility();
+  setConsoleInputState(false);
 
-if (state.shareLoaded) {
-  showToast("Проект загружен по ссылке");
+  if (state.shareLoaded) {
+    showToast("Проект загружен по ссылке");
+  }
 }
+
+init();

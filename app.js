@@ -9,10 +9,10 @@ const ACTIVE_KEY = "shpyide-active";
 
 const codeArea = document.getElementById("code");
 const fileTabs = document.getElementById("file-tabs");
-const consoleOutput = document.getElementById("console");
-const consoleInputForm = document.getElementById("console-input-form");
-const consoleInput = document.getElementById("console-input");
-const consoleInputButton = consoleInputForm.querySelector("button");
+const consoleShell = document.getElementById("console");
+const consoleOutput = document.getElementById("console-output");
+const consoleInputLine = document.getElementById("console-input-line");
+const consoleInputBuffer = document.getElementById("console-input-buffer");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
@@ -36,6 +36,9 @@ let fileDialogMode = null;
 let editor = null;
 let isRunning = false;
 const runtimeFiles = new Set();
+let pendingInputResolver = null;
+let awaitingInput = false;
+let inputBuffer = "";
 
 function showToast(message) {
   toast.textContent = message;
@@ -426,30 +429,92 @@ async function ensurePyodide() {
 }
 
 function appendConsole(text, isError = false) {
+  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (isError) {
-    consoleOutput.textContent += `\nОшибка: ${text}`;
+    consoleOutput.textContent += `\nОшибка: ${normalizedText}`;
   } else {
-    consoleOutput.textContent += text;
+    consoleOutput.textContent += normalizedText;
   }
-  consoleOutput.scrollTop = consoleOutput.scrollHeight;
+  consoleShell.scrollTop = consoleShell.scrollHeight;
 }
 
 function setConsoleInputState(active) {
-  consoleInputForm.classList.toggle("console-input--waiting", active);
-  consoleInput.disabled = !isRunning;
-  consoleInputButton.disabled = !isRunning;
+  awaitingInput = active;
+  consoleShell.classList.toggle("console--waiting", active);
+  consoleInputLine.setAttribute("aria-hidden", String(!active));
   if (active) {
-    consoleInput.focus();
+    consoleShell.focus();
   }
 }
 
-function handleConsoleInputSubmit(event) {
-  event.preventDefault();
+function updateConsoleInputBuffer() {
+  consoleInputBuffer.textContent = inputBuffer;
+}
+
+function submitConsoleInput(value) {
   if (!isRunning) return;
-  const value = consoleInput.value;
-  consoleInput.value = "";
+  inputBuffer = "";
+  updateConsoleInputBuffer();
   appendConsole(`${value}\n`);
+  if (pendingInputResolver) {
+    pendingInputResolver(`${value}\n`);
+    pendingInputResolver = null;
+    setConsoleInputState(false);
+    return;
+  }
   inputQueue.push(`${value}\n`);
+}
+
+function handleConsoleKeydown(event) {
+  if (!awaitingInput || !isRunning) return;
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitConsoleInput(inputBuffer);
+    return;
+  }
+
+  if (event.key === "Backspace") {
+    event.preventDefault();
+    inputBuffer = inputBuffer.slice(0, -1);
+    updateConsoleInputBuffer();
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    inputBuffer = "";
+    updateConsoleInputBuffer();
+    return;
+  }
+
+  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    inputBuffer += event.key;
+    updateConsoleInputBuffer();
+  }
+}
+
+function handleConsolePaste(event) {
+  if (!awaitingInput || !isRunning) return;
+  event.preventDefault();
+  const text = event.clipboardData?.getData("text") ?? "";
+  if (!text) return;
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const [firstLine, ...rest] = normalized.split("\n");
+  inputBuffer += firstLine;
+  updateConsoleInputBuffer();
+  if (rest.length > 0) {
+    submitConsoleInput(inputBuffer);
+    rest.forEach((line) => inputQueue.push(`${line}\n`));
+  }
+}
+
+function waitForConsoleInput() {
+  setConsoleInputState(true);
+  return new Promise((resolve) => {
+    pendingInputResolver = resolve;
+  });
 }
 
 function setupStdin(pyodide) {
@@ -458,11 +523,7 @@ function setupStdin(pyodide) {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      setConsoleInputState(true);
-      const value = window.prompt("Введите ввод:", "") ?? "";
-      setConsoleInputState(false);
-      appendConsole(`${value}\n`);
-      return `${value}\n`;
+      return waitForConsoleInput();
     },
     isatty: true,
     eof: () => false,
@@ -491,6 +552,8 @@ async function runCode() {
   saveActiveFileContent();
   consoleOutput.textContent = "";
   inputQueue.length = 0;
+  inputBuffer = "";
+  updateConsoleInputBuffer();
   isRunning = true;
   setConsoleInputState(false);
   const turtleNeeded = usesTurtle();
@@ -538,7 +601,9 @@ document.getElementById("run").addEventListener("click", runCode);
 document.getElementById("share").addEventListener("click", shareProject);
 fileDialogConfirm.addEventListener("click", confirmFileDialog);
 fileDialogCancel.addEventListener("click", closeFileDialog);
-consoleInputForm.addEventListener("submit", handleConsoleInputSubmit);
+consoleShell.addEventListener("keydown", handleConsoleKeydown);
+consoleShell.addEventListener("paste", handleConsolePaste);
+consoleShell.addEventListener("click", () => consoleShell.focus());
 fileDialogInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   if (fileDialog.classList.contains("hidden")) return;

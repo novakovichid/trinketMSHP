@@ -214,42 +214,63 @@ body {
   padding: 12px;
   border-radius: 8px;
   min-height: 160px;
-  white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
   overflow-y: auto;
 }
 
+.console:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.console-output {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.console-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  opacity: 0.45;
+}
+
+.console--waiting .console-line {
+  opacity: 1;
+}
+
+.console-prompt {
+  color: #38bdf8;
+}
+
+.console-buffer {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.console-caret {
+  width: 8px;
+  height: 16px;
+  background: #e2e8f0;
+  animation: console-blink 1s steps(1) infinite;
+}
+
+.console--waiting .console-caret {
+  display: inline-block;
+}
+
+.console:not(.console--waiting) .console-caret {
+  display: none;
+}
+
 .console-shell {
   display: grid;
   gap: 10px;
-}
-
-.console-input {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.console-input input {
-  border-radius: 8px;
-  border: 1px solid #1f2937;
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 8px 10px;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-  font-size: 13px;
-}
-
-.console-input input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.console-input.console-input--waiting input {
-  outline: 2px solid #38bdf8;
-  outline-offset: 2px;
 }
 
 #turtle-canvas {
@@ -328,6 +349,12 @@ body {
 
   .editor__body {
     min-height: 360px;
+  }
+}
+
+@keyframes console-blink {
+  50% {
+    opacity: 0;
   }
 }
 

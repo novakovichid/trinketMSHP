@@ -48,16 +48,21 @@
             </div>
           </div>
           <div class="console-shell">
-            <pre id="console" class="console" aria-live="polite"></pre>
-            <form id="console-input-form" class="console-input" autocomplete="off">
-              <input
-                id="console-input"
-                type="text"
-                placeholder="Введите ввод и нажмите Enter"
-                disabled
-              />
-              <button type="submit" class="btn btn--ghost">Ввод</button>
-            </form>
+            <div
+              id="console"
+              class="console"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Консоль"
+              tabindex="0"
+            >
+              <pre id="console-output" class="console-output" aria-live="polite"></pre>
+              <div id="console-input-line" class="console-line" aria-hidden="true">
+                <span class="console-prompt">&gt;</span>
+                <span id="console-input-buffer" class="console-buffer"></span>
+                <span class="console-caret" aria-hidden="true"></span>
+              </div>
+            </div>
           </div>
         </div>
         <div id="turtle-panel" class="output__panel output__panel--turtle">

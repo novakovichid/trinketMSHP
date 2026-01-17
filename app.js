@@ -13,7 +13,12 @@ const consoleOutput = document.getElementById("console");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
-const lineNumbers = document.getElementById("line-numbers");
+const fileDialog = document.getElementById("file-dialog");
+const fileDialogTitle = document.getElementById("file-dialog-title");
+const fileDialogMessage = document.getElementById("file-dialog-message");
+const fileDialogInput = document.getElementById("file-dialog-input");
+const fileDialogConfirm = document.getElementById("file-dialog-confirm");
+const fileDialogCancel = document.getElementById("file-dialog-cancel");
 
 const state = {
   files: {},
@@ -22,6 +27,14 @@ const state = {
   runtimeReady: false,
   shareLoaded: false,
 };
+
+const inputQueue = [];
+let inputResolver = null;
+let fileDialogMode = null;
+let editor = null;
+let inputBuffer = "";
+let inputStartIndex = 0;
+let inputActive = false;
 
 function showToast(message) {
   toast.textContent = message;
@@ -87,68 +100,137 @@ function renderFileTabs() {
   });
 }
 
-function switchFile(filename) {
-  if (!state.files[filename]) return;
-  state.active = filename;
-  codeArea.value = state.files[filename];
-  renderFileTabs();
-  updateLineNumbers();
+function saveActiveFileContent() {
+  if (!state.active || !editor) return;
+  state.files[state.active] = editor.getValue();
   persistState();
 }
 
-function updateActiveFileContent() {
-  if (!state.active) return;
-  state.files[state.active] = codeArea.value;
+function switchFile(filename) {
+  if (!state.files[filename]) return;
+  if (filename !== state.active) {
+    saveActiveFileContent();
+  }
+  state.active = filename;
+  if (editor) {
+    editor.setValue(state.files[filename]);
+  } else {
+    codeArea.value = state.files[filename];
+  }
+  renderFileTabs();
   persistState();
-  updateLineNumbers();
   updateTurtleVisibility();
 }
 
+function updateActiveFileContent() {
+  if (!state.active || !editor) return;
+  state.files[state.active] = editor.getValue();
+  persistState();
+  updateTurtleVisibility();
+}
+
+function openFileDialog(mode) {
+  fileDialogMode = mode;
+  fileDialogMessage.classList.add("hidden");
+  fileDialogInput.classList.remove("hidden");
+
+  if (mode === "add") {
+    fileDialogTitle.textContent = "Создать файл";
+    fileDialogInput.placeholder = "helpers.py";
+    fileDialogInput.value = "";
+  } else if (mode === "rename") {
+    fileDialogTitle.textContent = "Переименовать файл";
+    fileDialogInput.value = state.active;
+    fileDialogInput.select();
+  } else if (mode === "delete") {
+    fileDialogTitle.textContent = "Удалить файл";
+    fileDialogInput.classList.add("hidden");
+    fileDialogMessage.textContent = `Удалить ${state.active}?`;
+    fileDialogMessage.classList.remove("hidden");
+  } else if (mode === "share") {
+    fileDialogTitle.textContent = "Ссылка для обмена";
+    fileDialogInput.value = "";
+    fileDialogInput.readOnly = true;
+    fileDialogInput.classList.remove("hidden");
+  }
+
+  fileDialog.classList.remove("hidden");
+  if (mode === "add" || mode === "rename" || mode === "share") {
+    fileDialogInput.focus();
+  }
+}
+
+function closeFileDialog() {
+  fileDialog.classList.add("hidden");
+  fileDialogInput.readOnly = false;
+  fileDialogInput.value = "";
+  fileDialogMode = null;
+}
+
+function confirmFileDialog() {
+  const name = fileDialogInput.value.trim();
+
+  if (fileDialogMode === "add") {
+    if (!name) return;
+    if (!name.endsWith(".py")) {
+      showToast("Файл должен быть .py");
+      return;
+    }
+    if (state.files[name]) {
+      showToast("Файл уже существует");
+      return;
+    }
+    state.files[name] = "";
+    switchFile(name);
+  }
+
+  if (fileDialogMode === "rename") {
+    if (!name || name === state.active) {
+      closeFileDialog();
+      return;
+    }
+    if (!name.endsWith(".py")) {
+      showToast("Файл должен быть .py");
+      return;
+    }
+    if (state.files[name]) {
+      showToast("Файл уже существует");
+      return;
+    }
+    const content = state.files[state.active];
+    delete state.files[state.active];
+    state.files[name] = content;
+    switchFile(name);
+  }
+
+  if (fileDialogMode === "delete") {
+    if (Object.keys(state.files).length === 1) {
+      showToast("Нужен хотя бы один файл");
+      closeFileDialog();
+      return;
+    }
+    delete state.files[state.active];
+    state.active = Object.keys(state.files)[0];
+    switchFile(state.active);
+  }
+
+  closeFileDialog();
+}
+
 function addFile() {
-  const name = prompt("Имя файла (например, helpers.py)");
-  if (!name) return;
-  if (!name.endsWith(".py")) {
-    showToast("Файл должен быть .py");
-    return;
-  }
-  if (state.files[name]) {
-    showToast("Файл уже существует");
-    return;
-  }
-  state.files[name] = "";
-  switchFile(name);
+  openFileDialog("add");
 }
 
 function renameFile() {
-  const name = prompt("Новое имя файла", state.active);
-  if (!name || name === state.active) return;
-  if (!name.endsWith(".py")) {
-    showToast("Файл должен быть .py");
-    return;
-  }
-  if (state.files[name]) {
-    showToast("Файл уже существует");
-    return;
-  }
-  const content = state.files[state.active];
-  delete state.files[state.active];
-  state.files[name] = content;
-  switchFile(name);
+  openFileDialog("rename");
 }
 
 function deleteFile() {
-  if (Object.keys(state.files).length === 1) {
-    showToast("Нужен хотя бы один файл");
-    return;
-  }
-  if (!confirm(`Удалить ${state.active}?`)) return;
-  delete state.files[state.active];
-  state.active = Object.keys(state.files)[0];
-  switchFile(state.active);
+  openFileDialog("delete");
 }
 
 function downloadActiveFile() {
-  updateActiveFileContent();
+  saveActiveFileContent();
   const content = state.files[state.active] ?? "";
   const blob = new Blob([content], { type: "text/x-python" });
   const url = URL.createObjectURL(blob);
@@ -159,16 +241,6 @@ function downloadActiveFile() {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-}
-
-function updateLineNumbers() {
-  const totalLines = codeArea.value.split("\n").length || 1;
-  const lines = Array.from({ length: totalLines }, (_, index) => index + 1);
-  lineNumbers.innerHTML = lines.map((line) => `<div>${line}</div>`).join("");
-}
-
-function syncLineNumbersScroll() {
-  lineNumbers.scrollTop = codeArea.scrollTop;
 }
 
 function usesTurtle() {
@@ -315,21 +387,99 @@ function appendConsole(text, isError = false) {
   }
 }
 
+function showConsolePrompt(promptText = "") {
+  if (promptText) {
+    appendConsole(promptText);
+  }
+  inputStartIndex = consoleOutput.textContent.length;
+  inputBuffer = "";
+  inputActive = true;
+  consoleOutput.classList.add("console--input");
+  consoleOutput.focus();
+}
+
+function resetConsolePrompt() {
+  inputActive = false;
+  inputBuffer = "";
+  inputStartIndex = 0;
+  consoleOutput.classList.remove("console--input");
+}
+
+function requestConsoleInput(promptText = "") {
+  showConsolePrompt(promptText);
+  return new Promise((resolve) => {
+    inputResolver = resolve;
+  });
+}
+
+function handleConsoleSubmit() {
+  if (!inputActive) return;
+  const value = inputBuffer;
+  appendConsole("\n");
+  inputBuffer = "";
+  if (inputResolver) {
+    const resolver = inputResolver;
+    inputResolver = null;
+    resolver(`${value}\n`);
+    resetConsolePrompt();
+  } else {
+    inputQueue.push(`${value}\n`);
+  }
+}
+
+function handleConsoleKeydown(event) {
+  if (!inputActive) return;
+  if (event.key === "Enter") {
+    event.preventDefault();
+    handleConsoleSubmit();
+    return;
+  }
+  if (event.key === "Backspace") {
+    if (consoleOutput.textContent.length > inputStartIndex) {
+      event.preventDefault();
+      consoleOutput.textContent = consoleOutput.textContent.slice(0, -1);
+      inputBuffer = inputBuffer.slice(0, -1);
+    }
+    return;
+  }
+  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault();
+    inputBuffer += event.key;
+    consoleOutput.textContent += event.key;
+  }
+}
+
+function setupStdin(pyodide) {
+  pyodide.setStdin({
+    stdin: () => {
+      if (inputQueue.length > 0) {
+        return inputQueue.shift();
+      }
+      return requestConsoleInput();
+    },
+    eof: () => false,
+  });
+}
+
 async function runCode() {
-  updateActiveFileContent();
+  saveActiveFileContent();
   consoleOutput.textContent = "";
+  inputQueue.length = 0;
+  inputResolver = null;
+  resetConsolePrompt();
   const turtleNeeded = usesTurtle();
   turtlePanel.classList.toggle("hidden", !turtleNeeded);
   if (turtleNeeded) {
     turtleRuntime.reset();
   }
   const pyodide = await ensurePyodide();
+  setupStdin(pyodide);
   Object.entries(state.files).forEach(([name, content]) => {
     pyodide.FS.writeFile(name, content);
   });
 
   const mainFile = state.files["main.py"] ? "main.py" : state.active;
-  const runner = `import runpy\nimport builtins\nimport js\n\ndef _input(prompt=\"\"):\n    value = js.prompt(prompt)\n    if value is None:\n        return \"\"\n    return value\n\nbuiltins.input = _input\nrunpy.run_path('${mainFile}')\n`;
+  const runner = `import runpy\nimport builtins\nimport sys\n\ndef _input(prompt=\"\"):\n    if prompt:\n        print(prompt, end=\"\")\n    return sys.stdin.readline().rstrip(\"\\n\")\n\nbuiltins.input = _input\nrunpy.run_path('${mainFile}')\n`;
 
   try {
     await pyodide.runPythonAsync(runner);
@@ -339,7 +489,7 @@ async function runCode() {
 }
 
 function shareProject() {
-  updateActiveFileContent();
+  saveActiveFileContent();
   const hash = serializeShare(state.files, state.active);
   const url = `${window.location.origin}${window.location.pathname}#${hash}`;
   if (navigator.clipboard?.writeText) {
@@ -347,13 +497,11 @@ function shareProject() {
       showToast("Ссылка скопирована!");
     });
   } else {
-    prompt("Скопируйте ссылку:", url);
+    openFileDialog("share");
+    fileDialogInput.value = url;
+    fileDialogInput.select();
   }
 }
-
-codeArea.addEventListener("input", updateActiveFileContent);
-codeArea.addEventListener("scroll", syncLineNumbersScroll);
-
 
 document.getElementById("add-file").addEventListener("click", addFile);
 document.getElementById("rename-file").addEventListener("click", renameFile);
@@ -361,15 +509,23 @@ document.getElementById("delete-file").addEventListener("click", deleteFile);
 document.getElementById("download-file").addEventListener("click", downloadActiveFile);
 document.getElementById("run").addEventListener("click", runCode);
 document.getElementById("share").addEventListener("click", shareProject);
-document.getElementById("debug").addEventListener("click", () => {
-  showToast("Отладка будет доступна в следующей версии.");
-});
+fileDialogConfirm.addEventListener("click", confirmFileDialog);
+fileDialogCancel.addEventListener("click", closeFileDialog);
+consoleOutput.addEventListener("keydown", handleConsoleKeydown);
 
 loadState();
+editor = CodeMirror.fromTextArea(codeArea, {
+  lineNumbers: true,
+  mode: "python",
+  lineWrapping: true,
+  indentUnit: 4,
+  tabSize: 4,
+});
+editor.on("change", updateActiveFileContent);
 renderFileTabs();
 switchFile(state.active);
-updateLineNumbers();
 updateTurtleVisibility();
+resetConsolePrompt();
 
 if (state.shareLoaded) {
   showToast("Проект загружен по ссылке");

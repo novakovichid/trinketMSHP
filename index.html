@@ -47,7 +47,18 @@
               <button id="run" class="btn btn--primary">▶ Запуск</button>
             </div>
           </div>
-          <pre id="console" class="console" tabindex="0" aria-live="polite"></pre>
+          <div class="console-shell">
+            <pre id="console" class="console" aria-live="polite"></pre>
+            <form id="console-input-form" class="console-input" autocomplete="off">
+              <input
+                id="console-input"
+                type="text"
+                placeholder="Введите ввод и нажмите Enter"
+                disabled
+              />
+              <button type="submit" class="btn btn--ghost">Ввод</button>
+            </form>
+          </div>
         </div>
         <div id="turtle-panel" class="output__panel output__panel--turtle">
           <h2>Turtle</h2>

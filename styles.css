@@ -149,34 +149,27 @@ body {
 }
 
 .editor__body {
-  display: grid;
-  grid-template-columns: 52px 1fr;
   min-height: 520px;
-}
-
-.line-numbers {
-  background: #f9fafb;
-  border-right: 1px solid #e5e7eb;
-  padding: 16px 0;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: right;
-  color: #94a3b8;
-  user-select: none;
-  overflow: hidden;
 }
 
 #code {
-  width: 100%;
+  display: none;
+}
+
+.CodeMirror {
+  height: 100%;
   min-height: 520px;
-  padding: 16px 20px 16px 16px;
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
-  border: none;
-  resize: vertical;
   font-size: 14px;
-  line-height: 1.6;
-  outline: none;
+}
+
+.CodeMirror-gutters {
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+}
+
+.CodeMirror-linenumber {
+  color: #94a3b8;
 }
 
 .output {
@@ -226,6 +219,11 @@ body {
   font-size: 13px;
 }
 
+.console.console--input {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 #turtle-canvas {
   width: 100%;
   border: 1px solid #e5e7eb;
@@ -249,6 +247,50 @@ body {
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+.file-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 20;
+}
+
+.file-dialog__content {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  min-width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+}
+
+.file-dialog__content h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.file-dialog__message {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+}
+
+#file-dialog-input {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.file-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 @media (max-width: 1200px) {

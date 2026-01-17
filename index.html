@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Trinket Python (Frontend)</title>
     <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css"
+    />
   </head>
   <body>
     <header class="topbar">
@@ -31,7 +35,6 @@
           </div>
         </div>
         <div class="editor__body">
-          <div id="line-numbers" class="line-numbers" aria-hidden="true"></div>
           <textarea id="code" spellcheck="false"></textarea>
         </div>
       </section>
@@ -42,10 +45,9 @@
             <h2>Консоль</h2>
             <div class="panel__actions">
               <button id="run" class="btn btn--primary">▶ Запуск</button>
-              <button id="debug" class="btn btn--ghost">🐞 Отладка</button>
             </div>
           </div>
-          <pre id="console" class="console"></pre>
+          <pre id="console" class="console" tabindex="0" aria-live="polite"></pre>
         </div>
         <div id="turtle-panel" class="output__panel output__panel--turtle">
           <h2>Turtle</h2>
@@ -55,8 +57,21 @@
     </main>
 
     <div id="toast" class="toast" role="status"></div>
+    <div id="file-dialog" class="file-dialog hidden" role="dialog" aria-modal="true">
+      <div class="file-dialog__content">
+        <h3 id="file-dialog-title">Действие</h3>
+        <p id="file-dialog-message" class="file-dialog__message hidden"></p>
+        <input id="file-dialog-input" type="text" autocomplete="off" />
+        <div class="file-dialog__actions">
+          <button id="file-dialog-confirm" class="btn btn--primary">OK</button>
+          <button id="file-dialog-cancel" class="btn btn--ghost">Отмена</button>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

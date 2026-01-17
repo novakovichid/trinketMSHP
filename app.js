@@ -108,7 +108,7 @@ function saveActiveFileContent() {
 }
 
 function switchFile(filename) {
-  if (!state.files[filename]) return;
+  if (!Object.hasOwn(state.files, filename)) return;
   if (filename !== state.active) {
     saveActiveFileContent();
   }
@@ -451,12 +451,14 @@ function handleConsoleKeydown(event) {
 }
 
 function setupStdin(pyodide) {
+  // В этом проекте запрещено использовать window.prompt/alert/confirm для ввода.
   pyodide.setStdin({
-    stdin: async () => {
+    stdin: () => {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      return await requestConsoleInput();
+      showToast("Нет ввода для input(). Добавьте значение в консоль и повторите запуск.");
+      return "\n";
     },
     eof: () => false,
   });
@@ -495,7 +497,7 @@ async function runCode() {
   setupStdin(pyodide);
   syncRuntimeFiles(pyodide);
 
-  const mainFile = state.files["main.py"] ? "main.py" : state.active;
+  const mainFile = Object.hasOwn(state.files, "main.py") ? "main.py" : state.active;
   const runner = `import runpy\nrunpy.run_path('${mainFile}')\n`;
 
   try {

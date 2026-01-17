@@ -35,6 +35,7 @@ let editor = null;
 let inputBuffer = "";
 let inputStartIndex = 0;
 let inputActive = false;
+const runtimeFiles = new Set();
 
 function showToast(message) {
   toast.textContent = message;
@@ -451,13 +452,31 @@ function handleConsoleKeydown(event) {
 
 function setupStdin(pyodide) {
   pyodide.setStdin({
-    stdin: () => {
+    stdin: async () => {
       if (inputQueue.length > 0) {
         return inputQueue.shift();
       }
-      return requestConsoleInput();
+      return await requestConsoleInput();
     },
     eof: () => false,
+  });
+}
+
+function syncRuntimeFiles(pyodide) {
+  for (const filename of Array.from(runtimeFiles)) {
+    if (!Object.hasOwn(state.files, filename)) {
+      try {
+        pyodide.FS.unlink(filename);
+      } catch (error) {
+        console.warn("Failed to remove runtime file", filename, error);
+      }
+      runtimeFiles.delete(filename);
+    }
+  }
+
+  Object.entries(state.files).forEach(([name, content]) => {
+    pyodide.FS.writeFile(name, content);
+    runtimeFiles.add(name);
   });
 }
 
@@ -474,12 +493,10 @@ async function runCode() {
   }
   const pyodide = await ensurePyodide();
   setupStdin(pyodide);
-  Object.entries(state.files).forEach(([name, content]) => {
-    pyodide.FS.writeFile(name, content);
-  });
+  syncRuntimeFiles(pyodide);
 
   const mainFile = state.files["main.py"] ? "main.py" : state.active;
-  const runner = `import runpy\nimport builtins\nimport sys\n\ndef _input(prompt=\"\"):\n    if prompt:\n        print(prompt, end=\"\")\n    return sys.stdin.readline().rstrip(\"\\n\")\n\nbuiltins.input = _input\nrunpy.run_path('${mainFile}')\n`;
+  const runner = `import runpy\nrunpy.run_path('${mainFile}')\n`;
 
   try {
     await pyodide.runPythonAsync(runner);

@@ -9,8 +9,10 @@ const codeArea = document.getElementById("code");
 const fileTabs = document.getElementById("file-tabs");
 const consoleShell = document.getElementById("console");
 const consoleOutput = document.getElementById("console-output");
-const consoleInputLine = document.getElementById("console-input-line");
+const consoleInputForm = document.getElementById("console-input-form");
+const consolePrompt = document.getElementById("console-prompt");
 const consoleInput = document.getElementById("console-input");
+const consoleSubmit = document.getElementById("console-submit");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
@@ -33,8 +35,6 @@ let fileDialogMode = null;
 let editor = null;
 let isRunning = false;
 const runtimeFiles = new Set();
-let awaitingInput = false;
-let inputResolver = null;
 const consoleTextDecoder = new TextDecoder();
 
 function showToast(message) {
@@ -412,84 +412,105 @@ window.TurtleRuntime = turtleRuntime;
 
 const TURTLE_MODULE = `import js\n\n_runtime = js.TurtleRuntime\n\n\ndef setup(width=480, height=360):\n    _runtime.setup(width, height)\n\n\ndef forward(distance):\n    _runtime.forward(distance)\n\n\ndef backward(distance):\n    _runtime.backward(distance)\n\n\ndef left(angle):\n    _runtime.left(angle)\n\n\ndef right(angle):\n    _runtime.right(angle)\n\n\ndef penup():\n    _runtime.penup()\n\n\ndef pendown():\n    _runtime.pendown()\n\n\ndef goto(x, y):\n    _runtime.goto(x, y)\n\n\ndef setheading(angle):\n    _runtime.setheading(angle)\n\n\ndef color(value):\n    _runtime.color(value)\n\n\ndef width(value):\n    _runtime.width(value)\n\n\ndef speed(value):\n    _runtime.speed(value)\n\n\ndef clear():\n    _runtime.clear()\n\n\ndef circle(radius):\n    _runtime.circle(radius)\n\n\ndef write(text, font=(\"Arial\", 16, \"normal\")):\n    size = font[1] if len(font) > 1 else 16\n    family = font[0] if len(font) > 0 else \"Arial\"\n    _runtime.write(text, f\"{size}px {family}\")\n`;
 
-const INPUT_SHIM = `import builtins\nimport io\nimport js\nimport sys\n\n\ndef _shpy_input(prompt=\"\"):\n    return js.requestConsoleInput(prompt)\n\n\nclass _ShpyStdin(io.TextIOBase):\n    def readline(self, size=-1):\n        return f\"{js.requestConsoleInput('')}\\\\n\"\n\n\nsys.stdin = _ShpyStdin()\nbuiltins.input = _shpy_input\n`;
+function createConsoleController() {
+  let awaitingInput = false;
+  let inputResolver = null;
 
-async function ensurePyodide() {
-  if (state.pyodide) return state.pyodide;
-  consoleOutput.textContent = "Загрузка Python...";
-  state.pyodide = await loadPyodide();
-  state.pyodide.setStdout({
-    write: (buffer) => appendConsole(consoleTextDecoder.decode(buffer)),
-  });
-  state.pyodide.setStderr({
-    write: (buffer) => appendConsole(consoleTextDecoder.decode(buffer), true),
-  });
-  state.pyodide.setStdin({
-    stdin: () => requestConsoleInput(""),
-    isatty: true,
-  });
-  state.pyodide.FS.writeFile("turtle.py", TURTLE_MODULE);
-  state.pyodide.globals.set("requestConsoleInput", (promptText = "") => {
+  function normalize(text) {
+    return String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+
+  function append(text, isError = false) {
+    const normalizedText = normalize(text);
+    if (isError && normalizedText.trim()) {
+      consoleOutput.textContent += `Ошибка: ${normalizedText}`;
+    } else {
+      consoleOutput.textContent += normalizedText;
+    }
+    consoleShell.scrollTop = consoleShell.scrollHeight;
+  }
+
+  function setWaiting(active) {
+    awaitingInput = active;
+    consoleShell.classList.toggle("console--waiting", active);
+    consoleInput.disabled = !active;
+    consoleSubmit.disabled = !active;
+    if (active) {
+      consoleInput.focus();
+    }
+  }
+
+  function clear() {
+    consoleOutput.textContent = "";
+  }
+
+  function reset() {
+    if (awaitingInput && inputResolver) {
+      inputResolver("");
+    }
+    inputResolver = null;
+    setWaiting(false);
+  }
+
+  function readLine() {
     if (!isRunning) {
       return "";
     }
-    return requestConsoleInput(promptText);
-  });
-  await state.pyodide.runPythonAsync(INPUT_SHIM);
-  state.runtimeReady = true;
-  appendConsole("Python готов к работе.\n");
-  return state.pyodide;
-}
-
-function appendConsole(text, isError = false) {
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  if (isError) {
-    consoleOutput.textContent += `\nОшибка: ${normalizedText}`;
-  } else {
-    consoleOutput.textContent += normalizedText;
+    setWaiting(true);
+    consoleInput.value = "";
+    return new Promise((resolve) => {
+      inputResolver = resolve;
+    });
   }
-  consoleShell.scrollTop = consoleShell.scrollHeight;
-}
 
-function setConsoleInputState(active) {
-  awaitingInput = active;
-  consoleShell.classList.toggle("console--waiting", active);
-  consoleInputLine.setAttribute("aria-hidden", String(!active));
-  consoleInput.disabled = !active;
-  if (active) {
-    consoleShell.focus();
-  }
-}
-
-function resetInputState() {
-  if (awaitingInput && inputResolver) {
-    inputResolver("");
+  function submitInput() {
+    if (!awaitingInput || !inputResolver) return;
+    const response = consoleInput.value;
+    append(`${response}\n`);
+    const resolver = inputResolver;
     inputResolver = null;
+    setWaiting(false);
+    resolver(response);
   }
-  setConsoleInputState(false);
+
+  function setPrompt(text) {
+    consolePrompt.textContent = text || ">";
+  }
+
+  return {
+    append,
+    appendError(text) {
+      append(text, true);
+    },
+    clear,
+    reset,
+    readLine,
+    submitInput,
+    setPrompt,
+  };
 }
 
-function requestConsoleInput(promptText = "") {
-  if (!isRunning) return "";
-  const normalizedPrompt = String(promptText ?? "");
-  if (normalizedPrompt) {
-    appendConsole(normalizedPrompt);
-  }
-  setConsoleInputState(true);
-  consoleInput.value = "";
-  consoleInput.focus();
-  return new Promise((resolve) => {
-    inputResolver = resolve;
+const consoleController = createConsoleController();
+
+async function ensurePyodide() {
+  if (state.pyodide) return state.pyodide;
+  consoleController.clear();
+  consoleController.append("Загрузка Python...\n");
+  state.pyodide = await loadPyodide();
+  state.pyodide.setStdout({
+    write: (buffer) => consoleController.append(consoleTextDecoder.decode(buffer)),
   });
-}
-
-function submitConsoleInput() {
-  if (!awaitingInput || !inputResolver) return;
-  const response = consoleInput.value;
-  setConsoleInputState(false);
-  appendConsole(`${response}\n`);
-  inputResolver(response);
-  inputResolver = null;
+  state.pyodide.setStderr({
+    write: (buffer) => consoleController.appendError(consoleTextDecoder.decode(buffer)),
+  });
+  state.pyodide.setStdin({
+    stdin: () => consoleController.readLine(),
+    isatty: true,
+  });
+  state.pyodide.FS.writeFile("turtle.py", TURTLE_MODULE);
+  state.runtimeReady = true;
+  consoleController.append("Python готов к работе.\n");
+  return state.pyodide;
 }
 
 function syncRuntimeFiles(pyodide) {
@@ -512,10 +533,10 @@ function syncRuntimeFiles(pyodide) {
 
 async function runCode() {
   saveActiveFileContent();
-  consoleOutput.textContent = "";
-  resetInputState();
+  consoleController.clear();
+  consoleController.reset();
   isRunning = true;
-  setConsoleInputState(false);
+  consoleController.setPrompt(">");
   const turtleNeeded = usesTurtle();
   turtlePanel.classList.toggle("hidden", !turtleNeeded);
   if (turtleNeeded) {
@@ -530,10 +551,10 @@ async function runCode() {
   try {
     await pyodide.runPythonAsync(runner);
   } catch (error) {
-    appendConsole(`\n${error}`, true);
+    consoleController.appendError(`\n${error}`);
   } finally {
     isRunning = false;
-    resetInputState();
+    consoleController.reset();
   }
 }
 
@@ -561,10 +582,9 @@ document.getElementById("share").addEventListener("click", shareProject);
 fileDialogConfirm.addEventListener("click", confirmFileDialog);
 fileDialogCancel.addEventListener("click", closeFileDialog);
 consoleShell.addEventListener("click", () => consoleShell.focus());
-consoleInput.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
+consoleInputForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  submitConsoleInput();
+  consoleController.submitInput();
 });
 fileDialogInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
@@ -587,7 +607,8 @@ async function init() {
   renderFileTabs();
   switchFile(state.active);
   updateTurtleVisibility();
-  setConsoleInputState(false);
+  consoleController.setPrompt(">");
+  consoleController.reset();
 
   if (state.shareLoaded) {
     showToast("Проект загружен по ссылке");

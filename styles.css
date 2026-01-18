@@ -256,7 +256,7 @@ body {
   min-height: 160px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
   overflow-y: auto;
@@ -272,7 +272,7 @@ body {
   margin: 0;
 }
 
-.console-line {
+.console-input-form {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -280,19 +280,12 @@ body {
   opacity: 0.45;
 }
 
-.console--waiting .console-line {
+.console--waiting .console-input-form {
   opacity: 1;
 }
 
 .console-prompt {
   color: #38bdf8;
-}
-
-.console-caret {
-  width: 8px;
-  height: 16px;
-  background: #e2e8f0;
-  animation: console-blink 1s steps(1) infinite;
 }
 
 .console-input {
@@ -305,16 +298,25 @@ body {
   outline: none;
 }
 
-.console--waiting .console-caret {
-  display: inline-block;
+.console-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.console:not(.console--waiting) .console-caret {
-  display: none;
+.console-submit {
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: #111827;
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  cursor: pointer;
 }
 
-.console:not(.console--waiting) .console-line {
-  display: none;
+.console-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .console-shell {
@@ -446,12 +448,6 @@ body {
 
   .console {
     font-size: 12px;
-  }
-}
-
-@keyframes console-blink {
-  50% {
-    opacity: 0;
   }
 }
 

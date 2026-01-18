@@ -61,8 +61,8 @@
               tabindex="0"
             >
               <pre id="console-output" class="console-output" aria-live="polite"></pre>
-              <div id="console-input-line" class="console-line" aria-hidden="true">
-                <span class="console-prompt">&gt;</span>
+              <form id="console-input-form" class="console-input-form" autocomplete="off">
+                <span class="console-prompt" id="console-prompt">&gt;</span>
                 <input
                   id="console-input"
                   class="console-input"
@@ -70,8 +70,8 @@
                   autocomplete="off"
                   aria-label="Ввод"
                 />
-                <span class="console-caret" aria-hidden="true"></span>
-              </div>
+                <button id="console-submit" class="console-submit" type="submit">↵</button>
+              </form>
             </div>
           </div>
         </div>

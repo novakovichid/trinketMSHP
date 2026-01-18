@@ -20,81 +20,24 @@
       </div>
       <div class="actions">
         <a class="btn btn--ghost" href="brython.html">Черепашка</a>
-        <button id="share" class="btn btn--ghost">Поделиться</button>
       </div>
     </header>
 
     <main class="layout">
-      <section class="editor">
-        <div class="editor__tabs">
-          <div id="file-tabs" class="file-tabs"></div>
-          <div class="file-actions" role="tablist" aria-label="Управление файлами">
-            <button id="add-file" class="tab-btn" role="tab">+ Файл</button>
-            <button id="rename-file" class="tab-btn" role="tab">Переименовать</button>
-            <button id="delete-file" class="tab-btn" role="tab">Удалить</button>
-            <button id="download-file" class="tab-btn" role="tab">Скачать</button>
-          </div>
-        </div>
-        <div class="editor__body">
-          <textarea id="code" spellcheck="false"></textarea>
-        </div>
-      </section>
-
       <section class="output">
-        <div id="turtle-panel" class="output__panel output__panel--turtle">
-          <h2>Turtle</h2>
-          <canvas id="turtle-canvas" width="400" height="300"></canvas>
-        </div>
         <div class="output__panel output__panel--console">
           <div class="panel__header">
-            <h2>Консоль</h2>
-            <div class="panel__actions">
-              <button id="run" class="btn btn--primary">▶ Запуск</button>
-            </div>
+            <h2>Pyodide-версия временно отключена</h2>
           </div>
           <div class="console-shell">
-            <div
-              id="console"
-              class="console"
-              role="textbox"
-              aria-multiline="true"
-              aria-label="Консоль"
-              tabindex="0"
-            >
-              <pre id="console-output" class="console-output" aria-live="polite"></pre>
-              <form id="console-input-form" class="console-input-form" autocomplete="off">
-                <span class="console-prompt" id="console-prompt">&gt;</span>
-                <input
-                  id="console-input"
-                  class="console-input"
-                  type="text"
-                  autocomplete="off"
-                  aria-label="Ввод"
-                />
-                <button id="console-submit" class="console-submit" type="submit">↵</button>
-              </form>
+            <div class="console" role="status" aria-live="polite">
+              <pre class="console-output">
+Эта версия временно выключена. Перейдите в режим «Черепашка» на Brython.
+              </pre>
             </div>
           </div>
         </div>
       </section>
     </main>
-
-    <div id="toast" class="toast" role="status"></div>
-    <div id="file-dialog" class="file-dialog hidden" role="dialog" aria-modal="true">
-      <div class="file-dialog__content">
-        <h3 id="file-dialog-title">Действие</h3>
-        <p id="file-dialog-message" class="file-dialog__message hidden"></p>
-        <input id="file-dialog-input" type="text" autocomplete="off" />
-        <div class="file-dialog__actions">
-          <button id="file-dialog-confirm" class="btn btn--primary">OK</button>
-          <button id="file-dialog-cancel" class="btn btn--ghost">Отмена</button>
-        </div>
-      </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
-    <script src="app.js"></script>
   </body>
 </html>

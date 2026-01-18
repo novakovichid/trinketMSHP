@@ -1,18 +1,286 @@
+const DEFAULT_FILES = {
+  "main.py": "",
+};
+
+const FILES_KEY = "shpyide-brython-files";
+const ACTIVE_KEY = "shpyide-brython-active";
+
 const codeArea = document.getElementById("code");
+const fileTabs = document.getElementById("file-tabs");
 const consoleShell = document.getElementById("console");
 const consoleOutput = document.getElementById("console-output");
 const runButton = document.getElementById("run");
 const clearButton = document.getElementById("clear");
+const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
+const fileDialog = document.getElementById("file-dialog");
+const fileDialogTitle = document.getElementById("file-dialog-title");
+const fileDialogMessage = document.getElementById("file-dialog-message");
+const fileDialogInput = document.getElementById("file-dialog-input");
+const fileDialogConfirm = document.getElementById("file-dialog-confirm");
+const fileDialogCancel = document.getElementById("file-dialog-cancel");
 
-const editor = CodeMirror.fromTextArea(codeArea, {
-  lineNumbers: true,
-  mode: "python",
-  lineWrapping: true,
-  indentUnit: 4,
-  tabSize: 4,
-});
+const state = {
+  files: {},
+  active: "main.py",
+  shareLoaded: false,
+};
+
+let fileDialogMode = null;
+let editor = null;
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2600);
+}
+
+function base64UrlEncode(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(text) {
+  const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function fallbackSerializeShare(files, active) {
+  const payload = JSON.stringify({ files, active });
+  return btoa(unescape(encodeURIComponent(payload)));
+}
+
+async function serializeShare(files, active) {
+  const payload = JSON.stringify({ files, active });
+  if (window.CompressionStream) {
+    try {
+      const encoded = new TextEncoder().encode(payload);
+      const compressedStream = new Blob([encoded]).stream().pipeThrough(new CompressionStream("gzip"));
+      const buffer = await new Response(compressedStream).arrayBuffer();
+      const compressed = new Uint8Array(buffer);
+      return `v1:${base64UrlEncode(compressed)}`;
+    } catch (error) {
+      console.warn("Failed to compress share payload", error);
+    }
+  }
+  return fallbackSerializeShare(files, active);
+}
+
+async function deserializeShare(hash) {
+  try {
+    if (hash.startsWith("v1:")) {
+      const payload = hash.slice(3);
+      if (!window.DecompressionStream) {
+        console.warn("DecompressionStream unavailable");
+        return null;
+      }
+      const compressed = base64UrlDecode(payload);
+      const decompressedStream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const buffer = await new Response(decompressedStream).arrayBuffer();
+      const decoded = new TextDecoder().decode(buffer);
+      return JSON.parse(decoded);
+    }
+    const decoded = decodeURIComponent(escape(atob(hash)));
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.warn("Bad share hash", error);
+    return null;
+  }
+}
+
+function persistState() {
+  localStorage.setItem(FILES_KEY, JSON.stringify(state.files));
+  localStorage.setItem(ACTIVE_KEY, state.active);
+}
+
+async function loadState() {
+  const hash = window.location.hash.replace("#", "");
+  if (hash) {
+    const shared = await deserializeShare(hash);
+    if (shared?.files) {
+      state.files = shared.files;
+      state.active = shared.active || Object.keys(shared.files)[0] || "main.py";
+      state.shareLoaded = true;
+      return;
+    }
+  }
+
+  const storedFiles = localStorage.getItem(FILES_KEY);
+  const storedActive = localStorage.getItem(ACTIVE_KEY);
+  if (storedFiles) {
+    state.files = JSON.parse(storedFiles);
+    state.active = storedActive || Object.keys(state.files)[0] || "main.py";
+  } else {
+    state.files = { ...DEFAULT_FILES };
+    state.active = "main.py";
+  }
+}
+
+function renderFileTabs() {
+  fileTabs.innerHTML = "";
+  Object.keys(state.files).forEach((filename) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "file-tab";
+    tab.textContent = filename;
+    if (filename === state.active) {
+      tab.classList.add("active");
+    }
+    tab.addEventListener("click", () => switchFile(filename));
+    fileTabs.appendChild(tab);
+  });
+}
+
+function saveActiveFileContent() {
+  if (!state.active || !editor) return;
+  state.files[state.active] = editor.getValue();
+  persistState();
+}
+
+function switchFile(filename) {
+  if (!Object.hasOwn(state.files, filename)) return;
+  if (filename !== state.active) {
+    saveActiveFileContent();
+  }
+  state.active = filename;
+  if (editor) {
+    editor.setValue(state.files[filename]);
+  } else {
+    codeArea.value = state.files[filename];
+  }
+  renderFileTabs();
+  persistState();
+  updateTurtleVisibility();
+}
+
+function updateActiveFileContent() {
+  if (!state.active || !editor) return;
+  state.files[state.active] = editor.getValue();
+  persistState();
+  updateTurtleVisibility();
+}
+
+function openFileDialog(mode) {
+  fileDialogMode = mode;
+  fileDialogMessage.classList.add("hidden");
+  fileDialogInput.classList.remove("hidden");
+
+  if (mode === "add") {
+    fileDialogTitle.textContent = "Создать файл";
+    fileDialogInput.placeholder = "helpers.py";
+    fileDialogInput.value = "";
+  } else if (mode === "rename") {
+    fileDialogTitle.textContent = "Переименовать файл";
+    fileDialogInput.value = state.active;
+    fileDialogInput.select();
+  } else if (mode === "delete") {
+    fileDialogTitle.textContent = "Удалить файл";
+    fileDialogInput.classList.add("hidden");
+    fileDialogMessage.textContent = `Удалить ${state.active}?`;
+    fileDialogMessage.classList.remove("hidden");
+  } else if (mode === "share") {
+    fileDialogTitle.textContent = "Ссылка для обмена";
+    fileDialogInput.value = "";
+    fileDialogInput.readOnly = true;
+    fileDialogInput.classList.remove("hidden");
+  }
+
+  fileDialog.classList.remove("hidden");
+  if (mode === "add" || mode === "rename" || mode === "share") {
+    fileDialogInput.focus();
+  }
+}
+
+function closeFileDialog() {
+  fileDialog.classList.add("hidden");
+  fileDialogInput.readOnly = false;
+  fileDialogInput.value = "";
+  fileDialogMode = null;
+}
+
+function confirmFileDialog() {
+  const name = fileDialogInput.value.trim();
+
+  if (fileDialogMode === "add") {
+    if (!name) return;
+    if (!name.endsWith(".py")) {
+      showToast("Файл должен быть .py");
+      return;
+    }
+    if (state.files[name]) {
+      showToast("Файл уже существует");
+      return;
+    }
+    state.files[name] = "";
+    switchFile(name);
+  }
+
+  if (fileDialogMode === "rename") {
+    saveActiveFileContent();
+    if (!name || name === state.active) {
+      closeFileDialog();
+      return;
+    }
+    if (!name.endsWith(".py")) {
+      showToast("Файл должен быть .py");
+      return;
+    }
+    if (state.files[name]) {
+      showToast("Файл уже существует");
+      return;
+    }
+    const content = state.files[state.active];
+    delete state.files[state.active];
+    state.files[name] = content;
+    state.active = name;
+    switchFile(name);
+  }
+
+  if (fileDialogMode === "delete") {
+    if (Object.keys(state.files).length === 1) {
+      showToast("Нужен хотя бы один файл");
+      closeFileDialog();
+      return;
+    }
+    delete state.files[state.active];
+    state.active = Object.keys(state.files)[0];
+    switchFile(state.active);
+  }
+
+  closeFileDialog();
+}
+
+function addFile() {
+  openFileDialog("add");
+}
+
+function renameFile() {
+  openFileDialog("rename");
+}
+
+function deleteFile() {
+  openFileDialog("delete");
+}
+
+function downloadActiveFile() {
+  saveActiveFileContent();
+  const content = state.files[state.active] ?? "";
+  const blob = new Blob([content], { type: "text/x-python" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = state.active;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 const consoleController = {
   append(text) {
@@ -28,6 +296,16 @@ window.writeToConsole = (text) => {
   consoleController.append(text);
 };
 
+function usesTurtle() {
+  return Object.values(state.files).some((content) =>
+    /\bfrom\s+turtle\b|\bimport\s+turtle\b|\bturtle\./.test(content),
+  );
+}
+
+function updateTurtleVisibility() {
+  turtlePanel.classList.toggle("hidden", !usesTurtle());
+}
+
 function createTurtleRuntime() {
   const ctx = canvas.getContext("2d");
   const runtime = {
@@ -42,9 +320,11 @@ function createTurtleRuntime() {
     speed: 6,
     visible: true,
     fillActive: false,
+    pathActive: false,
     stamps: [],
     titleText: "",
     listening: false,
+    shape: "classic",
     keyHandlers: {
       keydown: new Map(),
       keyup: new Map(),
@@ -68,17 +348,26 @@ function createTurtleRuntime() {
     runtime.speed = 6;
     runtime.visible = true;
     runtime.fillActive = false;
+    runtime.pathActive = false;
     runtime.stamps = [];
     runtime.listening = false;
+    runtime.shape = "classic";
     runtime.keyHandlers.keydown.clear();
     runtime.keyHandlers.keyup.clear();
     updateBackground();
   }
 
-  function beginFillPath() {
+  function ensurePath() {
+    if (runtime.pathActive) return;
     ctx.beginPath();
     ctx.moveTo(runtime.x, runtime.y);
+    runtime.pathActive = true;
+  }
+
+  function beginFillPath() {
     runtime.fillActive = true;
+    runtime.pathActive = false;
+    ensurePath();
   }
 
   function endFillPath() {
@@ -86,15 +375,25 @@ function createTurtleRuntime() {
     ctx.fillStyle = runtime.fillColor;
     ctx.fill();
     runtime.fillActive = false;
+    runtime.pathActive = false;
   }
 
   function lineTo(x, y) {
+    if (runtime.fillActive) {
+      ensurePath();
+      ctx.lineTo(x, y);
+      if (runtime.pen) {
+        ctx.strokeStyle = runtime.color;
+        ctx.lineWidth = runtime.width;
+        ctx.stroke();
+      }
+      runtime.x = x;
+      runtime.y = y;
+      return;
+    }
     if (!runtime.pen) {
       runtime.x = x;
       runtime.y = y;
-      if (runtime.fillActive) {
-        ctx.lineTo(x, y);
-      }
       return;
     }
     ctx.beginPath();
@@ -103,9 +402,6 @@ function createTurtleRuntime() {
     ctx.strokeStyle = runtime.color;
     ctx.lineWidth = runtime.width;
     ctx.stroke();
-    if (runtime.fillActive) {
-      ctx.lineTo(x, y);
-    }
     runtime.x = x;
     runtime.y = y;
   }
@@ -118,6 +414,22 @@ function createTurtleRuntime() {
   }
 
   function circle(radius, extent = 360) {
+    if (runtime.fillActive) {
+      ensurePath();
+      const start = ((runtime.angle - 90) * Math.PI) / 180;
+      const end = start + (extent * Math.PI) / 180;
+      ctx.arc(runtime.x, runtime.y, radius, start, end);
+      if (runtime.pen) {
+        ctx.strokeStyle = runtime.color;
+        ctx.lineWidth = runtime.width;
+        ctx.stroke();
+      }
+      if (extent === 360) {
+        ctx.fillStyle = runtime.fillColor;
+        ctx.fill();
+      }
+      return;
+    }
     ctx.beginPath();
     ctx.strokeStyle = runtime.color;
     ctx.lineWidth = runtime.width;
@@ -125,10 +437,6 @@ function createTurtleRuntime() {
     const end = start + (extent * Math.PI) / 180;
     ctx.arc(runtime.x, runtime.y, radius, start, end);
     ctx.stroke();
-    if (runtime.fillActive && extent === 360) {
-      ctx.fillStyle = runtime.fillColor;
-      ctx.fill();
-    }
   }
 
   function dot(size = 4, color = runtime.color) {
@@ -279,6 +587,9 @@ function createTurtleRuntime() {
     speed(value) {
       runtime.speed = value;
     },
+    shape(value) {
+      runtime.shape = value;
+    },
     showturtle() {
       runtime.visible = true;
     },
@@ -418,6 +729,10 @@ def setheading(angle):
     _runtime.setheading(angle)
 
 
+def seth(angle):
+    _runtime.setheading(angle)
+
+
 def heading():
     return _runtime.heading()
 
@@ -452,6 +767,10 @@ def pensize(value):
 
 def speed(value):
     _runtime.speed(value)
+
+
+def shape(value):
+    _runtime.shape(value)
 
 
 def showturtle():
@@ -590,6 +909,9 @@ class Turtle:
     def setheading(self, angle):
         setheading(angle)
 
+    def seth(self, angle):
+        seth(angle)
+
     def heading(self):
         return heading()
 
@@ -616,6 +938,9 @@ class Turtle:
 
     def speed(self, value):
         speed(value)
+
+    def shape(self, value):
+        shape(value)
 
     def showturtle(self):
         showturtle()
@@ -655,6 +980,9 @@ class Turtle:
 
     def write(self, text, font=("Arial", 16, "normal")):
         write(text, font)
+
+    def title(self, value):
+        title(value)
 
     def onkeypress(self, func, key=None):
         onkeypress(func, key)
@@ -709,6 +1037,7 @@ _turtle_module = types.SimpleNamespace(
     width=width,
     pensize=pensize,
     speed=speed,
+    shape=shape,
     showturtle=showturtle,
     st=showturtle,
     hideturtle=hideturtle,
@@ -760,12 +1089,12 @@ sys.stdout = console
 sys.stderr = console
 `;
 
-function usesTurtle(source) {
-  return /\bfrom\s+turtle\b|\bimport\s+turtle\b|\bturtle\./.test(source);
-}
-
-function updateTurtleVisibility(source) {
-  turtlePanel.classList.toggle("hidden", !usesTurtle(source));
+function updateTurtlePanelState() {
+  const turtleNeeded = usesTurtle();
+  turtlePanel.classList.toggle("hidden", !turtleNeeded);
+  if (turtleNeeded) {
+    turtleRuntime.reset();
+  }
 }
 
 function ensureBrythonReady() {
@@ -776,15 +1105,49 @@ function ensureBrythonReady() {
   return true;
 }
 
+function getMainFile() {
+  return Object.hasOwn(state.files, "main.py") ? "main.py" : state.active;
+}
+
+function buildModuleLoader(mainFile) {
+  const moduleEntries = Object.entries(state.files)
+    .filter(([name]) => name.endsWith(".py") && name !== mainFile)
+    .map(([name, content]) => ({
+      name: name.replace(/\.py$/, ""),
+      content,
+    }))
+    .filter((entry) => entry.name);
+
+  if (!moduleEntries.length) return "";
+
+  const lines = [
+    "import sys",
+    "import types",
+    "",
+    "def _register_module(name, source):",
+    "    module = types.ModuleType(name)",
+    "    module.__file__ = f\"{name}.py\"",
+    "    sys.modules[name] = module",
+    "    exec(source, module.__dict__)",
+    "",
+  ];
+
+  moduleEntries.forEach((entry) => {
+    lines.push(`_register_module(${JSON.stringify(entry.name)}, ${JSON.stringify(entry.content)})`);
+  });
+
+  return `${lines.join("\n")}\n`;
+}
+
 function runCode() {
   if (!ensureBrythonReady()) return;
+  saveActiveFileContent();
   consoleController.clear();
-  const code = editor.getValue();
-  updateTurtleVisibility(code);
-  if (usesTurtle(code)) {
-    turtleRuntime.reset();
-  }
-  const fullCode = `${BRYTHON_PRELUDE}\n${TURTLE_MODULE}\n${code}`;
+  updateTurtlePanelState();
+  const mainFile = getMainFile();
+  const moduleLoader = buildModuleLoader(mainFile);
+  const mainContent = state.files[mainFile] ?? "";
+  const fullCode = `${BRYTHON_PRELUDE}\n${TURTLE_MODULE}\n${moduleLoader}${mainContent}`;
   try {
     // eslint-disable-next-line no-eval
     eval(window.__BRYTHON__.python_to_js(fullCode, "__main__", "__main__"));
@@ -793,12 +1156,59 @@ function runCode() {
   }
 }
 
+async function shareProject() {
+  saveActiveFileContent();
+  const hash = await serializeShare(state.files, state.active);
+  const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast("Ссылка скопирована!");
+    });
+  } else {
+    openFileDialog("share");
+    fileDialogInput.value = url;
+    fileDialogInput.select();
+  }
+}
+
+document.getElementById("add-file").addEventListener("click", addFile);
+document.getElementById("rename-file").addEventListener("click", renameFile);
+document.getElementById("delete-file").addEventListener("click", deleteFile);
+document.getElementById("download-file").addEventListener("click", downloadActiveFile);
+document.getElementById("share").addEventListener("click", shareProject);
+fileDialogConfirm.addEventListener("click", confirmFileDialog);
+fileDialogCancel.addEventListener("click", closeFileDialog);
 runButton.addEventListener("click", runCode);
 clearButton.addEventListener("click", () => consoleController.clear());
 consoleShell.addEventListener("click", () => consoleShell.focus());
-editor.on("change", () => updateTurtleVisibility(editor.getValue()));
+fileDialogInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  if (fileDialog.classList.contains("hidden")) return;
+  if (fileDialogMode !== "add" && fileDialogMode !== "rename") return;
+  event.preventDefault();
+  confirmFileDialog();
+});
+
+async function init() {
+  await loadState();
+  editor = CodeMirror.fromTextArea(codeArea, {
+    lineNumbers: true,
+    mode: "python",
+    lineWrapping: true,
+    indentUnit: 4,
+    tabSize: 4,
+  });
+  editor.on("change", updateActiveFileContent);
+  renderFileTabs();
+  switchFile(state.active);
+  updateTurtleVisibility();
+
+  if (state.shareLoaded) {
+    showToast("Проект загружен по ссылке");
+  }
+}
 
 window.addEventListener("load", () => {
   brython();
-  updateTurtleVisibility(editor.getValue());
+  init();
 });

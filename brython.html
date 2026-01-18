@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SHPyIDE (Brython)</title>
+    <title>SHPyIDE (Черепашка)</title>
     <link rel="stylesheet" href="styles.css" />
     <link
       rel="stylesheet"
@@ -15,8 +15,8 @@
       <div class="brand">
         <span class="brand__dot"></span>
         <div>
-          <h1>SHPyIDE · Brython</h1>
-          <p>Экспериментальная версия на Brython.</p>
+          <h1>SHPyIDE · Черепашка</h1>
+          <p>Версия «Черепашка» на Brython.</p>
         </div>
       </div>
       <div class="actions">
@@ -43,15 +43,8 @@
 
       <section class="output">
         <div id="turtle-panel" class="output__panel output__panel--turtle">
-          <h2>Turtle</h2>
+          <h2>Черепашка</h2>
           <canvas id="turtle-canvas" width="480" height="360"></canvas>
-        </div>
-        <div class="output__panel">
-          <h2>Особенности</h2>
-          <p class="panel__status">
-            Brython запускает Python прямо в браузере без загрузки большого
-            дистрибутива. Подходит для быстрых демо, но не все библиотеки совместимы.
-          </p>
         </div>
         <div class="output__panel output__panel--console">
           <div class="panel__header">
@@ -71,6 +64,17 @@
               tabindex="0"
             >
               <pre id="console-output" class="console-output" aria-live="polite"></pre>
+              <form id="console-input-form" class="console-input-form" autocomplete="off">
+                <span class="console-prompt" id="console-prompt">&gt;</span>
+                <input
+                  id="console-input"
+                  class="console-input"
+                  type="text"
+                  autocomplete="off"
+                  aria-label="Ввод"
+                />
+                <button id="console-submit" class="console-submit" type="submit">↵</button>
+              </form>
             </div>
           </div>
         </div>

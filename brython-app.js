@@ -9,6 +9,10 @@ const codeArea = document.getElementById("code");
 const fileTabs = document.getElementById("file-tabs");
 const consoleShell = document.getElementById("console");
 const consoleOutput = document.getElementById("console-output");
+const consoleInputForm = document.getElementById("console-input-form");
+const consolePrompt = document.getElementById("console-prompt");
+const consoleInput = document.getElementById("console-input");
+const consoleSubmit = document.getElementById("console-submit");
 const runButton = document.getElementById("run");
 const clearButton = document.getElementById("clear");
 const toast = document.getElementById("toast");
@@ -282,19 +286,74 @@ function downloadActiveFile() {
   URL.revokeObjectURL(url);
 }
 
-const consoleController = {
-  append(text) {
+function createConsoleController() {
+  let awaitingInput = false;
+  let inputResolver = null;
+
+  function append(text) {
     consoleOutput.textContent += String(text ?? "");
     consoleShell.scrollTop = consoleShell.scrollHeight;
-  },
-  clear() {
+  }
+
+  function clear() {
     consoleOutput.textContent = "";
-  },
-};
+  }
+
+  function setWaiting(active) {
+    awaitingInput = active;
+    consoleShell.classList.toggle("console--waiting", active);
+    consoleInput.disabled = !active;
+    consoleSubmit.disabled = !active;
+    if (active) {
+      consoleInput.focus();
+    }
+  }
+
+  function reset() {
+    if (awaitingInput && inputResolver) {
+      inputResolver("");
+    }
+    inputResolver = null;
+    setWaiting(false);
+  }
+
+  function readLine(promptText = ">") {
+    setWaiting(true);
+    consolePrompt.textContent = promptText || ">";
+    consoleInput.value = "";
+    return new Promise((resolve) => {
+      inputResolver = resolve;
+    });
+  }
+
+  function submitInput() {
+    if (!awaitingInput || !inputResolver) return;
+    const response = consoleInput.value;
+    append(`${response}\n`);
+    const resolver = inputResolver;
+    inputResolver = null;
+    setWaiting(false);
+    resolver(response);
+  }
+
+  setWaiting(false);
+
+  return {
+    append,
+    clear,
+    reset,
+    readLine,
+    submitInput,
+  };
+}
+
+const consoleController = createConsoleController();
 
 window.writeToConsole = (text) => {
   consoleController.append(text);
 };
+
+window.readConsoleInput = (promptText) => consoleController.readLine(promptText);
 
 function usesTurtle() {
   return Object.values(state.files).some((content) =>
@@ -317,7 +376,9 @@ function createTurtleRuntime() {
     fillColor: "#111827",
     bgColor: "#ffffff",
     width: 2,
-    speed: 6,
+    speed: 10,
+    delay: 0,
+    tracer: 1,
     visible: true,
     fillActive: false,
     pathActive: false,
@@ -325,17 +386,72 @@ function createTurtleRuntime() {
     titleText: "",
     listening: false,
     shape: "classic",
+    screenClickHandler: null,
+    screenReleaseHandler: null,
     keyHandlers: {
       keydown: new Map(),
       keyup: new Map(),
     },
   };
 
+  const actionQueue = [];
+  let isAnimating = false;
+  let animationToken = 0;
+
   function updateBackground() {
     canvas.style.background = runtime.bgColor;
   }
 
+  function animationDelay() {
+    const speed = Number.isFinite(runtime.speed) ? runtime.speed : 10;
+    const normalized = Math.max(0, Math.min(10, speed));
+    const baseDelay = 30 - normalized * 2.6;
+    const tracerDelay = Number.isFinite(runtime.delay) ? runtime.delay : 0;
+    return Math.max(0, Math.max(4, baseDelay) + tracerDelay);
+  }
+
+  function resetQueue() {
+    actionQueue.length = 0;
+    animationToken += 1;
+    isAnimating = false;
+  }
+
+  function processQueue() {
+    if (isAnimating) return;
+    isAnimating = true;
+    const token = animationToken;
+    const tick = () => {
+      if (token !== animationToken) {
+        isAnimating = false;
+        return;
+      }
+      const action = actionQueue.shift();
+      if (!action) {
+        isAnimating = false;
+        return;
+      }
+      action();
+      const delay = animationDelay();
+      if (delay <= 16) {
+        requestAnimationFrame(tick);
+      } else {
+        setTimeout(tick, delay);
+      }
+    };
+    tick();
+  }
+
+  function enqueueAction(action) {
+    if (runtime.tracer === 0) {
+      action();
+      return;
+    }
+    actionQueue.push(action);
+    processQueue();
+  }
+
   function reset() {
+    resetQueue();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     runtime.x = canvas.width / 2;
     runtime.y = canvas.height / 2;
@@ -345,13 +461,17 @@ function createTurtleRuntime() {
     runtime.fillColor = "#111827";
     runtime.bgColor = "#ffffff";
     runtime.width = 2;
-    runtime.speed = 6;
+    runtime.speed = 10;
+    runtime.delay = 0;
+    runtime.tracer = 1;
     runtime.visible = true;
     runtime.fillActive = false;
     runtime.pathActive = false;
     runtime.stamps = [];
     runtime.listening = false;
     runtime.shape = "classic";
+    runtime.screenClickHandler = null;
+    runtime.screenReleaseHandler = null;
     runtime.keyHandlers.keydown.clear();
     runtime.keyHandlers.keyup.clear();
     updateBackground();
@@ -406,37 +526,99 @@ function createTurtleRuntime() {
     runtime.y = y;
   }
 
+  function drawLineSegment(fromX, fromY, toX, toY, style) {
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = style.width;
+    ctx.stroke();
+  }
+
+  function queueLineSegments(startX, startY, endX, endY, style) {
+    const distance = Math.hypot(endX - startX, endY - startY);
+    if (distance === 0) return;
+    const normalizedSpeed = Math.max(0, Math.min(10, Math.round(runtime.speed)));
+    const stepSize = Math.max(2, 12 - normalizedSpeed);
+    const steps = Math.max(1, Math.ceil(distance / stepSize));
+    for (let i = 0; i < steps; i += 1) {
+      const fromX = startX + ((endX - startX) * i) / steps;
+      const fromY = startY + ((endY - startY) * i) / steps;
+      const toX = startX + ((endX - startX) * (i + 1)) / steps;
+      const toY = startY + ((endY - startY) * (i + 1)) / steps;
+      enqueueAction(() => drawLineSegment(fromX, fromY, toX, toY, style));
+    }
+  }
+
+  function moveTo(x, y) {
+    if (runtime.fillActive) {
+      lineTo(x, y);
+      return;
+    }
+    const startX = runtime.x;
+    const startY = runtime.y;
+    if (!runtime.pen) {
+      runtime.x = x;
+      runtime.y = y;
+      return;
+    }
+    const style = { color: runtime.color, width: runtime.width };
+    queueLineSegments(startX, startY, x, y, style);
+    runtime.x = x;
+    runtime.y = y;
+  }
+
   function move(distance) {
     const radians = (runtime.angle * Math.PI) / 180;
     const x = runtime.x + Math.cos(radians) * distance;
     const y = runtime.y + Math.sin(radians) * distance;
-    lineTo(x, y);
+    moveTo(x, y);
   }
 
   function circle(radius, extent = 360) {
+    if (!Number.isFinite(radius) || radius === 0) return;
+    const radiusAbs = Math.abs(radius);
+    const direction = radius >= 0 ? 1 : -1;
+    const headingRadians = (runtime.angle * Math.PI) / 180;
+    const centerAngle = headingRadians - direction * (Math.PI / 2);
+    const centerX = runtime.x + Math.cos(centerAngle) * radiusAbs;
+    const centerY = runtime.y + Math.sin(centerAngle) * radiusAbs;
+    const startAngle = Math.atan2(runtime.y - centerY, runtime.x - centerX);
+    const extentRadians = (extent * Math.PI) / 180;
+    const endAngle = startAngle + extentRadians * direction;
+    const anticlockwise = extent * direction > 0;
+
     if (runtime.fillActive) {
       ensurePath();
-      const start = ((runtime.angle - 90) * Math.PI) / 180;
-      const end = start + (extent * Math.PI) / 180;
-      ctx.arc(runtime.x, runtime.y, radius, start, end);
+      ctx.arc(centerX, centerY, radiusAbs, startAngle, endAngle, anticlockwise);
       if (runtime.pen) {
         ctx.strokeStyle = runtime.color;
         ctx.lineWidth = runtime.width;
         ctx.stroke();
       }
-      if (extent === 360) {
+      if (extent === 360 || extent === -360) {
         ctx.fillStyle = runtime.fillColor;
         ctx.fill();
       }
-      return;
+    } else {
+      const style = { color: runtime.color, width: runtime.width };
+      const steps = Math.max(1, Math.ceil(Math.abs(extent) / 8));
+      for (let i = 0; i < steps; i += 1) {
+        const arcStart = startAngle + (extentRadians * direction * i) / steps;
+        const arcEnd = startAngle + (extentRadians * direction * (i + 1)) / steps;
+        enqueueAction(() => {
+          ctx.beginPath();
+          ctx.strokeStyle = style.color;
+          ctx.lineWidth = style.width;
+          ctx.arc(centerX, centerY, radiusAbs, arcStart, arcEnd, anticlockwise);
+          ctx.stroke();
+        });
+      }
     }
-    ctx.beginPath();
-    ctx.strokeStyle = runtime.color;
-    ctx.lineWidth = runtime.width;
-    const start = ((runtime.angle - 90) * Math.PI) / 180;
-    const end = start + (extent * Math.PI) / 180;
-    ctx.arc(runtime.x, runtime.y, radius, start, end);
-    ctx.stroke();
+
+    runtime.x = centerX + Math.cos(endAngle) * radiusAbs;
+    runtime.y = centerY + Math.sin(endAngle) * radiusAbs;
+    runtime.angle = (runtime.angle - extent * direction) % 360;
   }
 
   function dot(size = 4, color = runtime.color) {
@@ -472,6 +654,37 @@ function createTurtleRuntime() {
     ctx.font = font;
     ctx.fillText(text, runtime.x, runtime.y);
   }
+
+  function updateTitle() {
+    if (runtime.titleText) {
+      document.title = runtime.titleText;
+    }
+  }
+
+  function flushQueue() {
+    const pending = actionQueue.splice(0);
+    pending.forEach((action) => action());
+    isAnimating = false;
+  }
+
+  function canvasToTurtleCoords(event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left - canvas.width / 2;
+    const y = canvas.height / 2 - (event.clientY - rect.top);
+    return { x, y };
+  }
+
+  canvas.addEventListener("click", (event) => {
+    if (!runtime.screenClickHandler) return;
+    const { x, y } = canvasToTurtleCoords(event);
+    runtime.screenClickHandler(x, y);
+  });
+
+  canvas.addEventListener("mouseup", (event) => {
+    if (!runtime.screenReleaseHandler) return;
+    const { x, y } = canvasToTurtleCoords(event);
+    runtime.screenReleaseHandler(x, y);
+  });
 
   function normalizeKey(key) {
     if (!key) return "";
@@ -532,13 +745,13 @@ function createTurtleRuntime() {
       return runtime.pen;
     },
     goto(x, y) {
-      lineTo(x + canvas.width / 2, canvas.height / 2 - y);
+      moveTo(x + canvas.width / 2, canvas.height / 2 - y);
     },
     setx(x) {
-      lineTo(x + canvas.width / 2, runtime.y);
+      moveTo(x + canvas.width / 2, runtime.y);
     },
     sety(y) {
-      lineTo(runtime.x, canvas.height / 2 - y);
+      moveTo(runtime.x, canvas.height / 2 - y);
     },
     position() {
       return [runtime.x - canvas.width / 2, canvas.height / 2 - runtime.y];
@@ -561,7 +774,7 @@ function createTurtleRuntime() {
       return runtime.angle;
     },
     home() {
-      lineTo(canvas.width / 2, canvas.height / 2);
+      moveTo(canvas.width / 2, canvas.height / 2);
       runtime.angle = 0;
     },
     color(value) {
@@ -587,6 +800,15 @@ function createTurtleRuntime() {
     speed(value) {
       runtime.speed = value;
     },
+    delay(value) {
+      runtime.delay = value;
+    },
+    tracer(value) {
+      runtime.tracer = value;
+    },
+    update() {
+      flushQueue();
+    },
     shape(value) {
       runtime.shape = value;
     },
@@ -600,6 +822,7 @@ function createTurtleRuntime() {
       return runtime.visible;
     },
     clear() {
+      resetQueue();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     },
     reset: () => reset(),
@@ -616,8 +839,12 @@ function createTurtleRuntime() {
       canvas.height = height;
       reset();
     },
+    screensize() {
+      return [canvas.width, canvas.height];
+    },
     title(value) {
       runtime.titleText = value;
+      updateTitle();
     },
     onkeypress(handler, key) {
       const normalized = normalizeKey(key);
@@ -643,8 +870,21 @@ function createTurtleRuntime() {
       }
       runtime.keyHandlers.keyup.set(normalized, handler);
     },
+    onclick(handler) {
+      runtime.screenClickHandler = handler;
+    },
+    onscreenclick(handler) {
+      runtime.screenClickHandler = handler;
+    },
+    onrelease(handler) {
+      runtime.screenReleaseHandler = handler;
+    },
     listen() {
       ensureListeners();
+    },
+    ontimer(handler, delay) {
+      if (!handler) return;
+      window.setTimeout(handler, Math.max(0, delay ?? 0));
     },
     mainloop() {
       ensureListeners();
@@ -830,6 +1070,15 @@ def write(text, font=("Arial", 16, "normal")):
 def title(value):
     _runtime.title(value)
 
+def delay(value):
+    _runtime.delay(value)
+
+def tracer(value=1):
+    _runtime.tracer(value)
+
+def update():
+    _runtime.update()
+
 
 def onkeypress(func, key=None):
     _runtime.onkeypress(func, key)
@@ -841,6 +1090,18 @@ def onkey(func, key=None):
 
 def onkeyrelease(func, key=None):
     _runtime.onkeyrelease(func, key)
+
+def onclick(func, btn=1, add=None):
+    _runtime.onclick(func)
+
+def onscreenclick(func, btn=1, add=None):
+    _runtime.onscreenclick(func)
+
+def onrelease(func, btn=1, add=None):
+    _runtime.onrelease(func)
+
+def ontimer(func, t=0):
+    _runtime.ontimer(func, t)
 
 
 def listen(xdummy=None, ydummy=None):
@@ -856,11 +1117,30 @@ def done():
 
 
 def screensize():
-    return (480, 360)
+    return _runtime.screensize()
 
 
 def getscreen():
     return _runtime
+
+
+def textinput(title, prompt):
+    return window.prompt(f"{title}\\n{prompt}", "")
+
+
+def numinput(title, prompt, default=None, minval=None, maxval=None):
+    value = window.prompt(f"{title}\\n{prompt}", default if default is not None else "")
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except Exception:
+        return None
+    if minval is not None and number < minval:
+        return None
+    if maxval is not None and number > maxval:
+        return None
+    return number
 
 
 class Turtle:
@@ -939,6 +1219,15 @@ class Turtle:
     def speed(self, value):
         speed(value)
 
+    def delay(self, value):
+        delay(value)
+
+    def tracer(self, value=1):
+        tracer(value)
+
+    def update(self):
+        update()
+
     def shape(self, value):
         shape(value)
 
@@ -993,6 +1282,15 @@ class Turtle:
     def onkeyrelease(self, func, key=None):
         onkeyrelease(func, key)
 
+    def onclick(self, func, btn=1, add=None):
+        onclick(func, btn, add)
+
+    def onrelease(self, func, btn=1, add=None):
+        onrelease(func, btn, add)
+
+    def ontimer(self, func, t=0):
+        ontimer(func, t)
+
     def listen(self, xdummy=None, ydummy=None):
         listen(xdummy, ydummy)
 
@@ -1037,6 +1335,9 @@ _turtle_module = types.SimpleNamespace(
     width=width,
     pensize=pensize,
     speed=speed,
+    delay=delay,
+    tracer=tracer,
+    update=update,
     shape=shape,
     showturtle=showturtle,
     st=showturtle,
@@ -1057,18 +1358,24 @@ _turtle_module = types.SimpleNamespace(
     onkeypress=onkeypress,
     onkey=onkey,
     onkeyrelease=onkeyrelease,
+    onclick=onclick,
+    onscreenclick=onscreenclick,
+    onrelease=onrelease,
+    ontimer=ontimer,
     listen=listen,
     mainloop=mainloop,
     done=done,
     screensize=screensize,
     getscreen=getscreen,
+    textinput=textinput,
+    numinput=numinput,
     Turtle=Turtle,
 )
 
 sys.modules["turtle"] = _turtle_module
 `;
 
-const BRYTHON_PRELUDE = `from browser import window
+const BRYTHON_PRELUDE = `from browser import window, aio
 import sys
 
 class _Console:
@@ -1082,7 +1389,7 @@ class _Console:
 def input(prompt=""):
     if prompt:
         window.writeToConsole(str(prompt))
-    return ""
+    return aio.run(window.readConsoleInput(str(prompt) if prompt else ">"))
 
 console = _Console()
 sys.stdout = console
@@ -1142,6 +1449,7 @@ function buildModuleLoader(mainFile) {
 function runCode() {
   if (!ensureBrythonReady()) return;
   saveActiveFileContent();
+  consoleController.reset();
   consoleController.clear();
   updateTurtlePanelState();
   const mainFile = getMainFile();
@@ -1187,6 +1495,10 @@ fileDialogInput.addEventListener("keydown", (event) => {
   if (fileDialogMode !== "add" && fileDialogMode !== "rename") return;
   event.preventDefault();
   confirmFileDialog();
+});
+consoleInputForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  consoleController.submitInput();
 });
 
 async function init() {

@@ -39,9 +39,13 @@
 
 ### Turtle
 
-Проект включает браузерную реализацию `turtle`, которая рисует на `<canvas>`. Доступны основные функции: `setup`, `forward`, `backward`, `left`, `right`, `penup`, `pendown`, `goto`, `setheading`, `color`, `width`, `speed`, `clear`, `circle`, `write`.
+Проект включает браузерную реализацию `turtle`, которая рисует на `<canvas>`. Поддерживаемый набор методов отличается от полной стандартной библиотеки Python, поэтому ориентируйтесь на список ниже.
 
-В Brython‑варианте есть расширенная шима `turtle` с алиасами и поддержкой клавиатурных обработчиков.
+**Pyodide‑вариант (index.html):**
+`setup`, `forward`, `backward`, `left`, `right`, `begin_fill`, `end_fill`, `penup`, `pendown`, `goto`, `setheading`, `color`, `fillcolor`, `width`, `speed`, `clear`, `circle`, `dot`, `write`, `shape` (пока заглушка).
+
+**Brython‑вариант (brython.html):**
+расширенная шима `turtle` с алиасами и поддержкой клавиатурных обработчиков. Доступны, в частности, `setup`, `forward`/`fd`, `backward`/`bk`, `left`/`lt`, `right`/`rt`, `penup`/`pu`, `pendown`/`pd`, `isdown`, `goto`, `setx`, `sety`, `position`/`pos`, `xcor`, `ycor`, `distance`, `setheading`/`seth`, `heading`, `home`, `color`, `pencolor`, `fillcolor`, `bgcolor`, `width`, `pensize`, `speed`, `delay`, `tracer`, `update`, `shape`, `showturtle`/`st`, `hideturtle`/`ht`, `isvisible`, `clear`, `reset`, `circle`, `dot`, `stamp`, `clearstamp`, `clearstamps`, `begin_fill`, `end_fill`, `write`, `title`, `onkeypress`, `onkey`, `onkeyrelease`, `onclick`, `onscreenclick`, `onrelease`, `ontimer`, `listen`, `mainloop`, `done`, `screensize`, `getscreen`, `textinput`, `numinput`.
 
 ## Техническая документация
 

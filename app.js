@@ -357,27 +357,30 @@ function createTurtleRuntime() {
   }
 
   function circle(radius, extent = 360) {
-    if (!radius) return;
+    if (!Number.isFinite(radius) || radius === 0) return;
+    const radiusAbs = Math.abs(radius);
+    const direction = radius >= 0 ? 1 : -1;
     const heading = (runtime.angle * Math.PI) / 180;
-    const leftOffsetAngle = heading - Math.PI / 2;
-    const centerX = runtime.x + Math.cos(leftOffsetAngle) * radius;
-    const centerY = runtime.y + Math.sin(leftOffsetAngle) * radius;
+    const centerAngle = heading + direction * (Math.PI / 2);
+    const centerX = runtime.x + Math.cos(centerAngle) * radiusAbs;
+    const centerY = runtime.y + Math.sin(centerAngle) * radiusAbs;
     const startAngle = Math.atan2(runtime.y - centerY, runtime.x - centerX);
     const extentRadians = (extent * Math.PI) / 180;
-    const endAngle = startAngle + extentRadians;
-    const anticlockwise = radius < 0;
+    const endAngle = startAngle + extentRadians * direction;
+    const anticlockwise = extent * direction > 0;
+
     if (!runtime.filling) {
       ctx.beginPath();
     }
     ctx.strokeStyle = runtime.color;
     ctx.lineWidth = runtime.width;
-    ctx.arc(centerX, centerY, Math.abs(radius), startAngle, endAngle, anticlockwise);
+    ctx.arc(centerX, centerY, radiusAbs, startAngle, endAngle, anticlockwise);
     if (runtime.pen) {
       ctx.stroke();
     }
-    runtime.x = centerX + Math.cos(endAngle) * Math.abs(radius);
-    runtime.y = centerY + Math.sin(endAngle) * Math.abs(radius);
-    runtime.angle = (runtime.angle + extent) % 360;
+    runtime.x = centerX + Math.cos(endAngle) * radiusAbs;
+    runtime.y = centerY + Math.sin(endAngle) * radiusAbs;
+    runtime.angle = (runtime.angle - extent * direction) % 360;
   }
 
   function write(text, font = "16px Arial") {
@@ -426,11 +429,18 @@ function createTurtleRuntime() {
     },
     color(value) {
       runtime.color = value;
+      runtime.fillColor = value;
+    },
+    pencolor(value) {
+      runtime.color = value;
     },
     fillcolor(value) {
       runtime.fillColor = value;
     },
     width(value) {
+      runtime.width = value;
+    },
+    pensize(value) {
       runtime.width = value;
     },
     speed(value) {
@@ -459,7 +469,7 @@ function createTurtleRuntime() {
 const turtleRuntime = createTurtleRuntime();
 window.TurtleRuntime = turtleRuntime;
 
-const TURTLE_MODULE = `import js\n\n_runtime = js.TurtleRuntime\n\n\ndef setup(width=400, height=300):\n    _runtime.setup(width, height)\n\n\ndef forward(distance):\n    _runtime.forward(distance)\n\n\ndef backward(distance):\n    _runtime.backward(distance)\n\n\ndef left(angle):\n    _runtime.left(angle)\n\n\ndef right(angle):\n    _runtime.right(angle)\n\n\ndef begin_fill():\n    _runtime.beginFill()\n\n\ndef end_fill():\n    _runtime.endFill()\n\n\ndef penup():\n    _runtime.penup()\n\n\ndef pendown():\n    _runtime.pendown()\n\n\ndef goto(x, y):\n    _runtime.goto(x, y)\n\n\ndef setheading(angle):\n    _runtime.setheading(angle)\n\n\ndef color(value):\n    _runtime.color(value)\n\n\ndef fillcolor(value):\n    _runtime.fillcolor(value)\n\n\ndef width(value):\n    _runtime.width(value)\n\n\ndef speed(value):\n    _runtime.speed(value)\n\n\ndef clear():\n    _runtime.clear()\n\n\ndef circle(radius, extent=360):\n    _runtime.circle(radius, extent)\n\n\ndef dot(size=6, color=None):\n    if color is None:\n        _runtime.dot(size)\n    else:\n        _runtime.dot(size, color)\n\n\ndef write(text, font=(\"Arial\", 16, \"normal\")):\n    size = font[1] if len(font) > 1 else 16\n    family = font[0] if len(font) > 0 else \"Arial\"\n    _runtime.write(text, f\"{size}px {family}\")\n\n\ndef shape(value):\n    _runtime.shape()\n`;
+const TURTLE_MODULE = `import js\n\n_runtime = js.TurtleRuntime\n\n\ndef setup(width=400, height=300):\n    _runtime.setup(width, height)\n\n\ndef forward(distance):\n    _runtime.forward(distance)\n\n\ndef backward(distance):\n    _runtime.backward(distance)\n\n\ndef left(angle):\n    _runtime.left(angle)\n\n\ndef right(angle):\n    _runtime.right(angle)\n\n\ndef begin_fill():\n    _runtime.beginFill()\n\n\ndef end_fill():\n    _runtime.endFill()\n\n\ndef penup():\n    _runtime.penup()\n\n\ndef pendown():\n    _runtime.pendown()\n\n\ndef goto(x, y):\n    _runtime.goto(x, y)\n\n\ndef setheading(angle):\n    _runtime.setheading(angle)\n\n\ndef color(value):\n    _runtime.color(value)\n\n\ndef pencolor(value):\n    _runtime.pencolor(value)\n\n\ndef fillcolor(value):\n    _runtime.fillcolor(value)\n\n\ndef width(value):\n    _runtime.width(value)\n\n\ndef pensize(value):\n    _runtime.pensize(value)\n\n\ndef speed(value):\n    _runtime.speed(value)\n\n\ndef clear():\n    _runtime.clear()\n\n\ndef circle(radius, extent=360):\n    _runtime.circle(radius, extent)\n\n\ndef dot(size=6, color=None):\n    if color is None:\n        _runtime.dot(size)\n    else:\n        _runtime.dot(size, color)\n\n\ndef write(text, font=(\"Arial\", 16, \"normal\")):\n    size = font[1] if len(font) > 1 else 16\n    family = font[0] if len(font) > 0 else \"Arial\"\n    _runtime.write(text, f\"{size}px {family}\")\n\n\ndef shape(value):\n    _runtime.shape()\n`;
 
 function createConsoleController() {
   let awaitingInput = false;

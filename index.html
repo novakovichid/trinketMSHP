@@ -40,6 +40,10 @@
       </section>
 
       <section class="output">
+        <div id="turtle-panel" class="output__panel output__panel--turtle">
+          <h2>Turtle</h2>
+          <canvas id="turtle-canvas" width="480" height="360"></canvas>
+        </div>
         <div class="output__panel output__panel--console">
           <div class="panel__header">
             <h2>Консоль</h2>
@@ -59,15 +63,17 @@
               <pre id="console-output" class="console-output" aria-live="polite"></pre>
               <div id="console-input-line" class="console-line" aria-hidden="true">
                 <span class="console-prompt">&gt;</span>
-                <span id="console-input-buffer" class="console-buffer"></span>
+                <input
+                  id="console-input"
+                  class="console-input"
+                  type="text"
+                  autocomplete="off"
+                  aria-label="Ввод"
+                />
                 <span class="console-caret" aria-hidden="true"></span>
               </div>
             </div>
           </div>
-        </div>
-        <div id="turtle-panel" class="output__panel output__panel--turtle">
-          <h2>Turtle</h2>
-          <canvas id="turtle-canvas" width="480" height="360"></canvas>
         </div>
       </section>
     </main>

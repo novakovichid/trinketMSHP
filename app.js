@@ -1,7 +1,5 @@
 const DEFAULT_FILES = {
-  "main.py": `from turtle import *\n\nsetup(480, 360)\nspeed(6)\n\nfor i in range(36):\n    forward(120)\n    left(170)\n\npenup()\ngoto(-160, -140)\ncolor(\"#2563eb\")\nwrite(\"SHPyIDE turtle in the browser!\", font=(\"Arial\", 14, \"normal\"))\n`,
-  "utils.py": `def greet(name: str) -> str:\n    return f\"Привет, {name}!\"\n`,
-  "app.py": `from utils import greet\n\nprint(greet(\"SHPyIDE\"))\n`,
+  "main.py": "",
 };
 
 const FILES_KEY = "shpyide-files";
@@ -12,6 +10,7 @@ const fileTabs = document.getElementById("file-tabs");
 const consoleShell = document.getElementById("console");
 const consoleOutput = document.getElementById("console-output");
 const consoleInputLine = document.getElementById("console-input-line");
+const consoleInput = document.getElementById("console-input");
 const toast = document.getElementById("toast");
 const canvas = document.getElementById("turtle-canvas");
 const turtlePanel = document.getElementById("turtle-panel");
@@ -35,6 +34,7 @@ let editor = null;
 let isRunning = false;
 const runtimeFiles = new Set();
 let awaitingInput = false;
+let inputResolver = null;
 const consoleTextDecoder = new TextDecoder();
 
 function showToast(message) {
@@ -412,7 +412,7 @@ window.TurtleRuntime = turtleRuntime;
 
 const TURTLE_MODULE = `import js\n\n_runtime = js.TurtleRuntime\n\n\ndef setup(width=480, height=360):\n    _runtime.setup(width, height)\n\n\ndef forward(distance):\n    _runtime.forward(distance)\n\n\ndef backward(distance):\n    _runtime.backward(distance)\n\n\ndef left(angle):\n    _runtime.left(angle)\n\n\ndef right(angle):\n    _runtime.right(angle)\n\n\ndef penup():\n    _runtime.penup()\n\n\ndef pendown():\n    _runtime.pendown()\n\n\ndef goto(x, y):\n    _runtime.goto(x, y)\n\n\ndef setheading(angle):\n    _runtime.setheading(angle)\n\n\ndef color(value):\n    _runtime.color(value)\n\n\ndef width(value):\n    _runtime.width(value)\n\n\ndef speed(value):\n    _runtime.speed(value)\n\n\ndef clear():\n    _runtime.clear()\n\n\ndef circle(radius):\n    _runtime.circle(radius)\n\n\ndef write(text, font=(\"Arial\", 16, \"normal\")):\n    size = font[1] if len(font) > 1 else 16\n    family = font[0] if len(font) > 0 else \"Arial\"\n    _runtime.write(text, f\"{size}px {family}\")\n`;
 
-const INPUT_SHIM = `import builtins\nimport io\nimport js\nimport sys\n\n\ndef _shpy_input(prompt=\"\"):\n    return js.requestConsoleInputSync(prompt)\n\n\nclass _ShpyStdin(io.TextIOBase):\n    def readline(self, size=-1):\n        return f\"{js.requestConsoleInputSync('')}\\\\n\"\n\n\nsys.stdin = _ShpyStdin()\nbuiltins.input = _shpy_input\n`;
+const INPUT_SHIM = `import builtins\nimport io\nimport js\nimport sys\n\n\ndef _shpy_input(prompt=\"\"):\n    return js.requestConsoleInput(prompt)\n\n\nclass _ShpyStdin(io.TextIOBase):\n    def readline(self, size=-1):\n        return f\"{js.requestConsoleInput('')}\\\\n\"\n\n\nsys.stdin = _ShpyStdin()\nbuiltins.input = _shpy_input\n`;
 
 async function ensurePyodide() {
   if (state.pyodide) return state.pyodide;
@@ -425,15 +425,15 @@ async function ensurePyodide() {
     write: (buffer) => appendConsole(consoleTextDecoder.decode(buffer), true),
   });
   state.pyodide.setStdin({
-    stdin: () => requestConsoleInputSync(""),
+    stdin: () => requestConsoleInput(""),
     isatty: true,
   });
   state.pyodide.FS.writeFile("turtle.py", TURTLE_MODULE);
-  state.pyodide.globals.set("requestConsoleInputSync", (promptText = "") => {
+  state.pyodide.globals.set("requestConsoleInput", (promptText = "") => {
     if (!isRunning) {
       return "";
     }
-    return requestConsoleInputSync(promptText);
+    return requestConsoleInput(promptText);
   });
   await state.pyodide.runPythonAsync(INPUT_SHIM);
   state.runtimeReady = true;
@@ -455,26 +455,41 @@ function setConsoleInputState(active) {
   awaitingInput = active;
   consoleShell.classList.toggle("console--waiting", active);
   consoleInputLine.setAttribute("aria-hidden", String(!active));
+  consoleInput.disabled = !active;
   if (active) {
     consoleShell.focus();
   }
 }
 
 function resetInputState() {
+  if (awaitingInput && inputResolver) {
+    inputResolver("");
+    inputResolver = null;
+  }
   setConsoleInputState(false);
 }
 
-function requestConsoleInputSync(promptText = "") {
+function requestConsoleInput(promptText = "") {
   if (!isRunning) return "";
   const normalizedPrompt = String(promptText ?? "");
   if (normalizedPrompt) {
     appendConsole(normalizedPrompt);
   }
   setConsoleInputState(true);
-  const response = window.prompt(normalizedPrompt) ?? "";
+  consoleInput.value = "";
+  consoleInput.focus();
+  return new Promise((resolve) => {
+    inputResolver = resolve;
+  });
+}
+
+function submitConsoleInput() {
+  if (!awaitingInput || !inputResolver) return;
+  const response = consoleInput.value;
   setConsoleInputState(false);
   appendConsole(`${response}\n`);
-  return response;
+  inputResolver(response);
+  inputResolver = null;
 }
 
 function syncRuntimeFiles(pyodide) {
@@ -546,6 +561,11 @@ document.getElementById("share").addEventListener("click", shareProject);
 fileDialogConfirm.addEventListener("click", confirmFileDialog);
 fileDialogCancel.addEventListener("click", closeFileDialog);
 consoleShell.addEventListener("click", () => consoleShell.focus());
+consoleInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  submitConsoleInput();
+});
 fileDialogInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   if (fileDialog.classList.contains("hidden")) return;

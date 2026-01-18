@@ -905,7 +905,7 @@ from browser import window
 _runtime = window.TurtleRuntime
 
 
-def setup(width=480, height=360):
+def setup(width=400, height=300):
     _runtime.setup(width, height)
 
 
@@ -1121,7 +1121,7 @@ def screensize():
 
 
 def getscreen():
-    return _runtime
+    return Screen()
 
 
 def textinput(title, prompt):
@@ -1301,6 +1301,62 @@ class Turtle:
         done()
 
 
+class Screen:
+    def setup(self, width=400, height=300):
+        setup(width, height)
+
+    def bgcolor(self, value):
+        bgcolor(value)
+
+    def title(self, value):
+        title(value)
+
+    def screensize(self):
+        return screensize()
+
+    def tracer(self, value=1):
+        tracer(value)
+
+    def update(self):
+        update()
+
+    def onkeypress(self, func, key=None):
+        onkeypress(func, key)
+
+    def onkey(self, func, key=None):
+        onkey(func, key)
+
+    def onkeyrelease(self, func, key=None):
+        onkeyrelease(func, key)
+
+    def onclick(self, func, btn=1, add=None):
+        onclick(func, btn, add)
+
+    def onscreenclick(self, func, btn=1, add=None):
+        onscreenclick(func, btn, add)
+
+    def onrelease(self, func, btn=1, add=None):
+        onrelease(func, btn, add)
+
+    def ontimer(self, func, t=0):
+        ontimer(func, t)
+
+    def listen(self, xdummy=None, ydummy=None):
+        listen(xdummy, ydummy)
+
+    def mainloop(self):
+        mainloop()
+
+    def done(self):
+        done()
+
+    def textinput(self, title_text, prompt):
+        return textinput(title_text, prompt)
+
+    def numinput(self, title_text, prompt, default=None, minval=None, maxval=None):
+        return numinput(title_text, prompt, default, minval, maxval)
+
+
 _turtle_module = types.SimpleNamespace(
     setup=setup,
     forward=forward,
@@ -1370,6 +1426,7 @@ _turtle_module = types.SimpleNamespace(
     textinput=textinput,
     numinput=numinput,
     Turtle=Turtle,
+    Screen=Screen,
 )
 
 sys.modules["turtle"] = _turtle_module

@@ -325,7 +325,8 @@ body {
 }
 
 #turtle-canvas {
-  width: 100%;
+  width: 400px;
+  height: 300px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;

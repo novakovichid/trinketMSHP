@@ -492,21 +492,30 @@ function createConsoleController() {
 
 const consoleController = createConsoleController();
 
+async function handleRuntimeInput() {
+  const line = await consoleController.readLine();
+  return `${line}\n`;
+}
+
+function attachRuntimeIo(pyodide) {
+  pyodide.setStdout({
+    write: (buffer) => consoleController.append(consoleTextDecoder.decode(buffer)),
+  });
+  pyodide.setStderr({
+    write: (buffer) => consoleController.appendError(consoleTextDecoder.decode(buffer)),
+  });
+  pyodide.setStdin({
+    stdin: handleRuntimeInput,
+    isatty: true,
+  });
+}
+
 async function ensurePyodide() {
   if (state.pyodide) return state.pyodide;
   consoleController.clear();
   consoleController.append("Загрузка Python...\n");
   state.pyodide = await loadPyodide();
-  state.pyodide.setStdout({
-    write: (buffer) => consoleController.append(consoleTextDecoder.decode(buffer)),
-  });
-  state.pyodide.setStderr({
-    write: (buffer) => consoleController.appendError(consoleTextDecoder.decode(buffer)),
-  });
-  state.pyodide.setStdin({
-    stdin: () => consoleController.readLine(),
-    isatty: true,
-  });
+  attachRuntimeIo(state.pyodide);
   state.pyodide.FS.writeFile("turtle.py", TURTLE_MODULE);
   state.runtimeReady = true;
   consoleController.append("Python готов к работе.\n");
@@ -531,7 +540,15 @@ function syncRuntimeFiles(pyodide) {
   });
 }
 
-async function runCode() {
+function getMainFile() {
+  return Object.hasOwn(state.files, "main.py") ? "main.py" : state.active;
+}
+
+function buildRunner(mainFile) {
+  return `import runpy\nrunpy.run_path(${JSON.stringify(mainFile)})\n`;
+}
+
+function prepareRun() {
   saveActiveFileContent();
   consoleController.clear();
   consoleController.reset();
@@ -542,19 +559,26 @@ async function runCode() {
   if (turtleNeeded) {
     turtleRuntime.reset();
   }
+}
+
+function finalizeRun() {
+  isRunning = false;
+  consoleController.reset();
+}
+
+async function runCode() {
+  prepareRun();
   const pyodide = await ensurePyodide();
   syncRuntimeFiles(pyodide);
 
-  const mainFile = Object.hasOwn(state.files, "main.py") ? "main.py" : state.active;
-  const runner = `import runpy\nrunpy.run_path('${mainFile}')\n`;
+  const runner = buildRunner(getMainFile());
 
   try {
     await pyodide.runPythonAsync(runner);
   } catch (error) {
     consoleController.appendError(`\n${error}`);
   } finally {
-    isRunning = false;
-    consoleController.reset();
+    finalizeRun();
   }
 }
 

@@ -288,11 +288,6 @@ body {
   color: #38bdf8;
 }
 
-.console-buffer {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .console-caret {
   width: 8px;
   height: 16px;
@@ -300,11 +295,25 @@ body {
   animation: console-blink 1s steps(1) infinite;
 }
 
+.console-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  outline: none;
+}
+
 .console--waiting .console-caret {
   display: inline-block;
 }
 
 .console:not(.console--waiting) .console-caret {
+  display: none;
+}
+
+.console:not(.console--waiting) .console-line {
   display: none;
 }
 
@@ -389,6 +398,54 @@ body {
 
   .editor__body {
     min-height: 360px;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .layout {
+    padding: 12px 16px 24px;
+  }
+
+  .panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .panel__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor__tabs {
+    gap: 8px;
+  }
+
+  .file-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .btn,
+  .tab-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .console {
+    font-size: 12px;
   }
 }
 

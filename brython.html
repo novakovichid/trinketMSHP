@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHPyIDE (Brython)</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css"
+    />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__dot"></span>
+        <div>
+          <h1>SHPyIDE · Brython</h1>
+          <p>Экспериментальная версия на Brython.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn btn--ghost" href="index.html">Pyodide-версия</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="editor">
+        <div class="editor__tabs">
+          <div class="file-tabs">
+            <button class="file-tab active" type="button">main.py</button>
+          </div>
+          <div class="file-actions">
+            <button id="run" class="btn btn--primary" type="button">▶ Запуск</button>
+          </div>
+        </div>
+        <div class="editor__body">
+          <textarea id="code" spellcheck="false">
+import turtle
+
+turtle.forward(120)
+turtle.left(90)
+turtle.forward(80)
+          </textarea>
+        </div>
+      </section>
+
+      <section class="output">
+        <div id="turtle-panel" class="output__panel output__panel--turtle">
+          <h2>Turtle</h2>
+          <canvas id="turtle-canvas" width="480" height="360"></canvas>
+        </div>
+        <div class="output__panel">
+          <h2>Особенности</h2>
+          <p class="panel__status">
+            Brython запускает Python прямо в браузере без загрузки большого
+            дистрибутива. Подходит для быстрых демо, но не все библиотеки совместимы.
+          </p>
+        </div>
+        <div class="output__panel output__panel--console">
+          <div class="panel__header">
+            <h2>Консоль</h2>
+            <div class="panel__actions">
+              <button id="clear" class="btn btn--ghost" type="button">Очистить</button>
+            </div>
+          </div>
+          <div class="console-shell">
+            <div
+              id="console"
+              class="console"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Консоль"
+              tabindex="0"
+            >
+              <pre id="console-output" class="console-output" aria-live="polite"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/brython@3.12.3/brython.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/brython@3.12.3/brython_stdlib.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+    <script src="brython-app.js"></script>
+  </body>
+</html>

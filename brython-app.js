@@ -580,7 +580,7 @@ function createTurtleRuntime() {
     const radiusAbs = Math.abs(radius);
     const direction = radius >= 0 ? 1 : -1;
     const headingRadians = (runtime.angle * Math.PI) / 180;
-    const centerAngle = headingRadians - direction * (Math.PI / 2);
+    const centerAngle = headingRadians + direction * (Math.PI / 2);
     const centerX = runtime.x + Math.cos(centerAngle) * radiusAbs;
     const centerY = runtime.y + Math.sin(centerAngle) * radiusAbs;
     const startAngle = Math.atan2(runtime.y - centerY, runtime.x - centerX);

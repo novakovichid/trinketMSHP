@@ -352,7 +352,7 @@ function createTurtleRuntime() {
   function move(distance) {
     const radians = (runtime.angle * Math.PI) / 180;
     const x = runtime.x + Math.cos(radians) * distance;
-    const y = runtime.y + Math.sin(radians) * distance;
+    const y = runtime.y - Math.sin(radians) * distance;
     lineTo(x, y);
   }
 
@@ -363,11 +363,11 @@ function createTurtleRuntime() {
     const heading = (runtime.angle * Math.PI) / 180;
     const centerAngle = heading + direction * (Math.PI / 2);
     const centerX = runtime.x + Math.cos(centerAngle) * radiusAbs;
-    const centerY = runtime.y + Math.sin(centerAngle) * radiusAbs;
+    const centerY = runtime.y - Math.sin(centerAngle) * radiusAbs;
     const startAngle = Math.atan2(runtime.y - centerY, runtime.x - centerX);
-    const extentRadians = (extent * Math.PI) / 180;
-    const endAngle = startAngle + extentRadians * direction;
-    const anticlockwise = extent * direction > 0;
+    const turnRadians = ((extent * Math.PI) / 180) * direction;
+    const endAngle = startAngle + turnRadians;
+    const anticlockwise = turnRadians < 0;
 
     if (!runtime.filling) {
       ctx.beginPath();
@@ -380,7 +380,7 @@ function createTurtleRuntime() {
     }
     runtime.x = centerX + Math.cos(endAngle) * radiusAbs;
     runtime.y = centerY + Math.sin(endAngle) * radiusAbs;
-    runtime.angle = (runtime.angle - extent * direction) % 360;
+    runtime.angle = (runtime.angle + extent * direction) % 360;
   }
 
   function write(text, font = "16px Arial") {
@@ -398,10 +398,10 @@ function createTurtleRuntime() {
       move(-distance);
     },
     left(angle) {
-      runtime.angle = (runtime.angle - angle) % 360;
+      runtime.angle = (runtime.angle + angle) % 360;
     },
     right(angle) {
-      runtime.angle = (runtime.angle + angle) % 360;
+      runtime.angle = (runtime.angle - angle) % 360;
     },
     beginFill() {
       runtime.filling = true;

@@ -571,7 +571,7 @@ function createTurtleRuntime() {
   function move(distance) {
     const radians = (runtime.angle * Math.PI) / 180;
     const x = runtime.x + Math.cos(radians) * distance;
-    const y = runtime.y + Math.sin(radians) * distance;
+    const y = runtime.y - Math.sin(radians) * distance;
     moveTo(x, y);
   }
 
@@ -582,11 +582,11 @@ function createTurtleRuntime() {
     const headingRadians = (runtime.angle * Math.PI) / 180;
     const centerAngle = headingRadians + direction * (Math.PI / 2);
     const centerX = runtime.x + Math.cos(centerAngle) * radiusAbs;
-    const centerY = runtime.y + Math.sin(centerAngle) * radiusAbs;
+    const centerY = runtime.y - Math.sin(centerAngle) * radiusAbs;
     const startAngle = Math.atan2(runtime.y - centerY, runtime.x - centerX);
-    const extentRadians = (extent * Math.PI) / 180;
-    const endAngle = startAngle + extentRadians * direction;
-    const anticlockwise = extent * direction > 0;
+    const turnRadians = ((extent * Math.PI) / 180) * direction;
+    const endAngle = startAngle + turnRadians;
+    const anticlockwise = turnRadians < 0;
 
     if (runtime.fillActive) {
       ensurePath();
@@ -604,8 +604,8 @@ function createTurtleRuntime() {
       const style = { color: runtime.color, width: runtime.width };
       const steps = Math.max(1, Math.ceil(Math.abs(extent) / 8));
       for (let i = 0; i < steps; i += 1) {
-        const arcStart = startAngle + (extentRadians * direction * i) / steps;
-        const arcEnd = startAngle + (extentRadians * direction * (i + 1)) / steps;
+        const arcStart = startAngle + (turnRadians * i) / steps;
+        const arcEnd = startAngle + (turnRadians * (i + 1)) / steps;
         enqueueAction(() => {
           ctx.beginPath();
           ctx.strokeStyle = style.color;
@@ -618,7 +618,7 @@ function createTurtleRuntime() {
 
     runtime.x = centerX + Math.cos(endAngle) * radiusAbs;
     runtime.y = centerY + Math.sin(endAngle) * radiusAbs;
-    runtime.angle = (runtime.angle - extent * direction) % 360;
+    runtime.angle = (runtime.angle + extent * direction) % 360;
   }
 
   function dot(size = 4, color = runtime.color) {
@@ -730,10 +730,10 @@ function createTurtleRuntime() {
       move(-distance);
     },
     left(angle) {
-      runtime.angle = (runtime.angle - angle) % 360;
+      runtime.angle = (runtime.angle + angle) % 360;
     },
     right(angle) {
-      runtime.angle = (runtime.angle + angle) % 360;
+      runtime.angle = (runtime.angle - angle) % 360;
     },
     penup() {
       runtime.pen = false;

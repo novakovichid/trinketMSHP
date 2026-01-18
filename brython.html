@@ -21,27 +21,23 @@
       </div>
       <div class="actions">
         <a class="btn btn--ghost" href="index.html">Pyodide-версия</a>
+        <button id="share" class="btn btn--ghost">Поделиться</button>
       </div>
     </header>
 
     <main class="layout">
       <section class="editor">
         <div class="editor__tabs">
-          <div class="file-tabs">
-            <button class="file-tab active" type="button">main.py</button>
-          </div>
-          <div class="file-actions">
-            <button id="run" class="btn btn--primary" type="button">▶ Запуск</button>
+          <div id="file-tabs" class="file-tabs"></div>
+          <div class="file-actions" role="tablist" aria-label="Управление файлами">
+            <button id="add-file" class="tab-btn" role="tab">+ Файл</button>
+            <button id="rename-file" class="tab-btn" role="tab">Переименовать</button>
+            <button id="delete-file" class="tab-btn" role="tab">Удалить</button>
+            <button id="download-file" class="tab-btn" role="tab">Скачать</button>
           </div>
         </div>
         <div class="editor__body">
-          <textarea id="code" spellcheck="false">
-import turtle
-
-turtle.forward(120)
-turtle.left(90)
-turtle.forward(80)
-          </textarea>
+          <textarea id="code" spellcheck="false"></textarea>
         </div>
       </section>
 
@@ -61,6 +57,7 @@ turtle.forward(80)
           <div class="panel__header">
             <h2>Консоль</h2>
             <div class="panel__actions">
+              <button id="run" class="btn btn--primary">▶ Запуск</button>
               <button id="clear" class="btn btn--ghost" type="button">Очистить</button>
             </div>
           </div>
@@ -79,6 +76,19 @@ turtle.forward(80)
         </div>
       </section>
     </main>
+
+    <div id="toast" class="toast" role="status"></div>
+    <div id="file-dialog" class="file-dialog hidden" role="dialog" aria-modal="true">
+      <div class="file-dialog__content">
+        <h3 id="file-dialog-title">Действие</h3>
+        <p id="file-dialog-message" class="file-dialog__message hidden"></p>
+        <input id="file-dialog-input" type="text" autocomplete="off" />
+        <div class="file-dialog__actions">
+          <button id="file-dialog-confirm" class="btn btn--primary">OK</button>
+          <button id="file-dialog-cancel" class="btn btn--ghost">Отмена</button>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/brython@3.12.3/brython.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/brython@3.12.3/brython_stdlib.js"></script>

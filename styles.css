@@ -14,6 +14,17 @@ body {
   min-height: 100vh;
 }
 
+.playground-body {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.topbar--playground {
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -95,6 +106,14 @@ body {
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
 }
 
+.playground-layout {
+  padding-top: 12px;
+}
+
+.layout--landing {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .editor {
   background: #ffffff;
   border-radius: 12px;
@@ -102,6 +121,13 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.playground-body .editor,
+.playground-body .output__panel {
+  border-radius: 6px;
+  border-color: #d0d7de;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 
 .editor__tabs {
@@ -113,6 +139,11 @@ body {
   background: #f9fafb;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.editor__tabs--playground {
+  background: #f6f7f9;
+  border-bottom-color: #d0d7de;
 }
 
 .file-tabs {
@@ -151,6 +182,12 @@ body {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.tab-btn--primary {
+  background: #0078d4;
+  border-color: #0078d4;
+  color: #ffffff;
 }
 
 .tab-btn:hover {
@@ -217,6 +254,128 @@ body {
   color: #64748b;
 }
 
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  gap: 24px;
+  align-items: start;
+  padding: 8px 0 24px;
+}
+
+.hero__intro h2 {
+  margin: 8px 0 12px;
+  font-size: 28px;
+}
+
+.hero__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+.hero__lead {
+  margin: 0 0 16px;
+  color: #475569;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hero__status {
+  display: grid;
+  gap: 12px;
+}
+
+.status-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.status-card__title {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.status-card__value {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.status-card__meta {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.mode-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.mode-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.mode-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.playground-status {
+  display: grid;
+  gap: 12px;
+}
+
+.status-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.status-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-tag {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .output__panel {
   background: #ffffff;
   border-radius: 12px;
@@ -228,6 +387,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.console-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.playground-body .console-card {
+  border-color: #d0d7de;
 }
 
 .panel__header {
@@ -260,6 +428,31 @@ body {
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
   font-size: 13px;
   overflow-y: auto;
+}
+
+.playground-body .console {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+}
+
+.playground-body .console-input-form {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 6px;
+}
+
+.playground-body .console-input {
+  color: #1f2937;
+}
+
+.playground-body .console-prompt {
+  color: #2563eb;
+}
+
+.playground-body .console-submit {
+  border-color: #cbd5f5;
+  background: #2563eb;
+  color: #ffffff;
 }
 
 .console:focus-visible {
@@ -399,6 +592,10 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
   .editor__body {
     min-height: 360px;
   }
@@ -418,6 +615,11 @@ body {
 
   .layout {
     padding: 12px 16px 24px;
+  }
+
+  .hero__actions,
+  .hero__status {
+    width: 100%;
   }
 
   .panel__header {

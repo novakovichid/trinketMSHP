@@ -19,24 +19,60 @@
         </div>
       </div>
       <div class="actions">
+        <a class="btn btn--ghost" href="playground.html">Python Playground</a>
         <a class="btn btn--ghost" href="brython.html">Черепашка</a>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="output">
-        <div class="output__panel output__panel--console">
-          <div class="panel__header">
-            <h2>Pyodide-версия временно отключена</h2>
-          </div>
-          <div class="console-shell">
-            <div class="console" role="status" aria-live="polite">
-              <pre class="console-output">
-Эта версия временно выключена. Перейдите в режим «Черепашка» на Brython.
-              </pre>
-            </div>
+    <main class="layout layout--landing">
+      <section class="hero">
+        <div class="hero__intro">
+          <p class="hero__eyebrow">SHPyIDE · Playground</p>
+          <h2>Два режима одного редактора</h2>
+          <p class="hero__lead">
+            Тестируем исполнитель Python на Skulpt для быстрого запуска кода.
+            Выберите режим ниже, чтобы перейти к нужному окружению.
+          </p>
+          <div class="hero__actions">
+            <a class="btn btn--primary" href="playground.html">Открыть Python Playground</a>
+            <a class="btn btn--ghost" href="brython.html">Открыть «Черепашку»</a>
           </div>
         </div>
+        <div class="hero__status">
+          <div class="status-card">
+            <p class="status-card__title">Python Playground</p>
+            <p class="status-card__value">Skulpt · Runtime</p>
+            <p class="status-card__meta">Запуск кода, ввод/вывод, режим playground.</p>
+          </div>
+          <div class="status-card">
+            <p class="status-card__title">Черепашка</p>
+            <p class="status-card__value">Brython · Turtle</p>
+            <p class="status-card__meta">Рисование на canvas с turtle.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="mode-grid">
+        <article class="mode-card">
+          <h3>Python Playground</h3>
+          <p>Исполнитель Python на Skulpt с консолью, вводом и быстрым запуском.</p>
+          <ul>
+            <li>Skulpt runtime внутри браузера.</li>
+            <li>Консоль ввода/вывода как в StepinDev.</li>
+            <li>Минимальный playground для тестов.</li>
+          </ul>
+          <a class="btn btn--primary" href="playground.html">Перейти</a>
+        </article>
+        <article class="mode-card">
+          <h3>Черепашка</h3>
+          <p>Творческий режим для уроков: графика turtle и консольный вывод.</p>
+          <ul>
+            <li>Быстрые скрипты для обучения.</li>
+            <li>Canvas с визуализацией.</li>
+            <li>Отдельное хранилище файлов.</li>
+          </ul>
+          <a class="btn btn--ghost" href="brython.html">Перейти</a>
+        </article>
       </section>
     </main>
   </body>

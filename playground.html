@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SHPyIDE (Python Playground · Skulpt)</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css"
+    />
+  </head>
+  <body class="playground-body">
+    <header class="topbar topbar--playground">
+      <div class="brand">
+        <span class="brand__dot"></span>
+        <div>
+          <h1>SHPyIDE · Python Playground</h1>
+          <p>Исполнитель Python на Skulpt для быстрых проверок кода.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn btn--ghost" href="index.html">Главная</a>
+        <a class="btn btn--ghost" href="brython.html">Черепашка</a>
+      </div>
+    </header>
+
+    <main class="layout layout--pyscript playground-layout">
+      <section class="editor">
+        <div class="editor__tabs editor__tabs--playground">
+          <div class="file-tabs">
+            <button class="file-tab active" type="button">main.py</button>
+          </div>
+          <div class="file-actions" role="group" aria-label="Управление запуском">
+            <button id="run" class="tab-btn tab-btn--primary" type="button">▶ Запуск</button>
+            <button id="stop" class="tab-btn" type="button" disabled>■ Стоп</button>
+            <button id="reset" class="tab-btn" type="button">↺ Сброс</button>
+            <button id="clear" class="tab-btn" type="button">Очистить</button>
+          </div>
+        </div>
+        <div class="editor__body">
+          <textarea id="code" spellcheck="false"></textarea>
+        </div>
+      </section>
+
+      <section class="output">
+        <div class="output__panel output__panel--console console-card">
+          <div class="panel__header">
+            <div>
+              <h2>Вывод программы</h2>
+              <p class="panel__status">Skulpt runtime · Python 3 (subset)</p>
+            </div>
+          </div>
+          <div class="console-shell">
+            <div
+              id="console"
+              class="console"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Консоль"
+              tabindex="0"
+            >
+              <pre id="console-output" class="console-output" aria-live="polite"></pre>
+              <form id="console-input-form" class="console-input-form" autocomplete="off">
+                <span class="console-prompt" id="console-prompt">&gt;</span>
+                <input
+                  id="console-input"
+                  class="console-input"
+                  type="text"
+                  autocomplete="off"
+                  aria-label="Ввод"
+                />
+                <button id="console-submit" class="console-submit" type="submit">↵</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="output__panel playground-status">
+          <h2>Подсказки</h2>
+          <ul class="status-list">
+            <li>Запуск Python в браузере через Skulpt.</li>
+            <li>Консоль принимает ввод через поле ниже вывода.</li>
+            <li>Кнопка «Сброс» возвращает стартовый пример.</li>
+          </ul>
+          <div class="status-tags">
+            <span class="status-tag">Skulpt</span>
+            <span class="status-tag">Console I/O</span>
+            <span class="status-tag">Playground</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+    <script src="skulpt-playground.js"></script>
+  </body>
+</html>
